@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Contenido del editor de texto enriquecido (Sobre el tour) */
+.rt-content:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8; /* slate-400 */
+}
+.rt-content h2 { font-size: 1.25rem; font-weight: 600; color: #0f172a; margin: 0.75rem 0 0.25rem; }
+.rt-content h3 { font-size: 1.05rem; font-weight: 600; color: #0f172a; margin: 0.5rem 0 0.25rem; }
+.rt-content p { margin: 0.25rem 0; }
+.rt-content ul { list-style: disc; padding-left: 1.25rem; margin: 0.25rem 0; }
+.rt-content ol { list-style: decimal; padding-left: 1.25rem; margin: 0.25rem 0; }
+.rt-content a { color: #059669; text-decoration: underline; } /* emerald-600 */

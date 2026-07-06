@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface ItineraryFormData {
   title: string;
@@ -27,6 +28,7 @@ interface Itinerary {
 }
 
 function Itineraries() {
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItinerary, setEditingItinerary] = useState<Itinerary | null>(null);
@@ -151,7 +153,7 @@ function Itineraries() {
   };
 
   const handleDeleteItinerary = (id: number) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este itinerario?')) {
+    if (window.confirm(t('itineraries.confirmDelete'))) {
       setItineraries(itineraries.filter(i => i.id !== id));
     }
   };
@@ -179,10 +181,9 @@ function Itineraries() {
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-6xl font-bold mb-6">🗺️ Itineraries</h1>
+          <h1 className="text-6xl font-bold mb-6">🗺️ {t('itineraries.title')}</h1>
           <p className="text-xl opacity-90 max-w-3xl mx-auto leading-relaxed">
-            Gestiona todos los itinerarios de viaje disponibles en la plataforma.
-            Desde aventuras alpinas hasta safaris africanos.
+            {t('itineraries.subtitle')}
           </p>
         </div>
       </div>
@@ -193,7 +194,7 @@ function Itineraries() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Itineraries</p>
+                <p className="text-sm text-gray-600">{t('itineraries.totalItineraries')}</p>
                 <p className="text-2xl font-bold text-gray-800">{itineraries.length}</p>
               </div>
               <div className="bg-indigo-100 p-3 rounded-full">
@@ -207,7 +208,7 @@ function Itineraries() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Categorías</p>
+                <p className="text-sm text-gray-600">{t('itineraries.categories')}</p>
                 <p className="text-2xl font-bold text-gray-800">{new Set(itineraries.map(i => i.category)).size}</p>
               </div>
               <div className="bg-blue-100 p-3 rounded-full">
@@ -221,7 +222,7 @@ function Itineraries() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Dificultades</p>
+                <p className="text-sm text-gray-600">{t('itineraries.difficulties')}</p>
                 <p className="text-2xl font-bold text-gray-800">{new Set(itineraries.map(i => i.difficulty)).size}</p>
               </div>
               <div className="bg-yellow-100 p-3 rounded-full">
@@ -235,7 +236,7 @@ function Itineraries() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Destinos Totales</p>
+                <p className="text-sm text-gray-600">{t('itineraries.totalDestinations')}</p>
                 <p className="text-2xl font-bold text-gray-800">{new Set(itineraries.flatMap(i => i.destinations)).size}</p>
               </div>
               <div className="bg-purple-100 p-3 rounded-full">
@@ -249,7 +250,7 @@ function Itineraries() {
 
         {/* Action Buttons */}
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">Lista de Itineraries</h2>
+          <h2 className="text-2xl font-bold text-gray-800">{t('itineraries.list')}</h2>
           <div className="flex gap-4">
             <button
               onClick={handleAddItinerary}
@@ -258,13 +259,13 @@ function Itineraries() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Agregar Itinerary
+              {t('itineraries.add')}
             </button>
             <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Exportar Datos
+              {t('common.exportData')}
             </button>
           </div>
         </div>
@@ -276,14 +277,14 @@ function Itineraries() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destinos</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dificultad</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Inicio</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Fin</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.image')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.titleField')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.totalDestinations')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.category')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.difficulty')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.startDate')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.endDate')}</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -395,7 +396,7 @@ function Itineraries() {
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-800">
-                  {editingItinerary ? 'Editar Itinerario' : 'Agregar Nuevo Itinerario'}
+                  {editingItinerary ? t('itineraries.edit') : t('itineraries.addNew')}
                 </h3>
                 <button
                   onClick={() => setIsModalOpen(false)}
@@ -425,7 +426,7 @@ function Itineraries() {
               }}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.titleField')}</label>
                     <input
                       type="text"
                       name="title"
@@ -435,20 +436,20 @@ function Itineraries() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.category')}</label>
                     <select
                       name="category"
                       defaultValue={editingItinerary?.category}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
-                      <option value="cultural">Cultural</option>
-                      <option value="adventure">Adventure</option>
-                      <option value="nature">Nature</option>
+                      <option value="cultural">{t('itineraries.cultural')}</option>
+                      <option value="adventure">{t('itineraries.adventure')}</option>
+                      <option value="nature">{t('itineraries.nature')}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Inicio</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.startDate')}</label>
                     <input
                       type="date"
                       name="start_date"
@@ -458,7 +459,7 @@ function Itineraries() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Fin</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.endDate')}</label>
                     <input
                       type="date"
                       name="end_date"
@@ -468,20 +469,20 @@ function Itineraries() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Dificultad</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.difficulty')}</label>
                     <select
                       name="difficulty"
                       defaultValue={editingItinerary?.difficulty}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
-                      <option value="Fácil">Fácil</option>
-                      <option value="Moderado">Moderado</option>
-                      <option value="Difícil">Difícil</option>
+                      <option value="Fácil">{t('itineraries.easy')}</option>
+                      <option value="Moderado">{t('itineraries.moderate')}</option>
+                      <option value="Difícil">{t('itineraries.hard')}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Imagen (Emoji)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.image')}</label>
                     <input
                       type="text"
                       name="image"
@@ -493,7 +494,7 @@ function Itineraries() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Destinos (separados por coma)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.destinations')}</label>
                   <input
                     type="text"
                     name="destinations"
@@ -504,7 +505,7 @@ function Itineraries() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Highlights (separados por coma)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.highlights')}</label>
                   <input
                     type="text"
                     name="highlights"
@@ -515,7 +516,7 @@ function Itineraries() {
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.description')}</label>
                   <textarea
                     name="description"
                     defaultValue={editingItinerary?.description}
@@ -531,13 +532,13 @@ function Itineraries() {
                     onClick={() => setIsModalOpen(false)}
                     className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Cancelar
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                   >
-                    {editingItinerary ? 'Actualizar' : 'Crear'}
+                    {editingItinerary ? t('common.update') : t('common.create')}
                   </button>
                 </div>
               </form>

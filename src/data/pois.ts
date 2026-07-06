@@ -381,7 +381,7 @@ const pois: POI[] = [
   {
     id: 32,
     name: 'Zoo Nacional de Santo Domingo',
-    category: 'Zoo (Zoológico)',
+    category: 'Zoológico',
     activities: ['Observación de Animales', 'Tours Educativos'],
     description: 'Zoológico con una variedad de animales locales e internacionales',
     rating: 7,
@@ -392,7 +392,7 @@ const pois: POI[] = [
   {
     id: 33,
     name: 'Acuario Nacional de Punta Cana',
-    category: 'Aquariums (Acuarios)',
+    category: 'Acuarios',
     activities: ['Observación de Vida Marina', 'Exhibiciones Educativas'],
     description: 'Acuario con exhibiciones de vida marina del Caribe',
     rating: 8,
@@ -403,7 +403,7 @@ const pois: POI[] = [
   {
     id: 34,
     name: 'Jardín Botánico Nacional de Santo Domingo',
-    category: 'Jardines Botánicos (Jardines Botánicos)',
+    category: 'Jardines Botánicos',
     activities: ['Tours Botánicos', 'Paseos por la Naturaleza'],
     description: 'Jardín botánico con plantas nativas y exóticas',
     rating: 8,
@@ -414,7 +414,7 @@ const pois: POI[] = [
   {
     id: 35,
     name: 'Parque del Retiro',
-    category: 'Parques (Parques)',
+    category: 'Parques',
     activities: ['Parques', 'Navegación', 'Pícnic'],
     description: 'Parque urbano con lagos, jardines y monumentos',
     rating: 9,
@@ -425,7 +425,7 @@ const pois: POI[] = [
   {
     id: 36,
     name: 'PortAventura World',
-    category: 'Parques Temáticos (Parques Temáticos)',
+    category: 'Parques Temáticos',
     activities: ['Atracciones de Parque Temático', 'Espectáculos', 'Entretenimiento Familiar'],
     description: 'Parque temático con atracciones, shows y hoteles',
     rating: 9,
@@ -436,7 +436,7 @@ const pois: POI[] = [
   {
     id: 37,
     name: 'Manatí Park Bavaro',
-    category: 'Parques Acuáticos (Parques Acuáticos)',
+    category: 'Parques Acuáticos',
     activities: ['Toboganes Acuáticos', 'Natación', 'Diversión Familiar'],
     description: 'Parque acuático con toboganes y piscinas',
     rating: 8,
