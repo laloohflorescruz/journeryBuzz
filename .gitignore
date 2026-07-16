@@ -50,8 +50,8 @@ out/
 
 # dotenv environment variable files
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # npm cache directory
 .npm

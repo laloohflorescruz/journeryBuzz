@@ -7,21 +7,26 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach access token to every request
+// Endpoints de auth: nunca deben llevar el Bearer guardado (un token viejo haría
+// que el backend responda 401 antes de validar usuario/contraseña).
+const isAuthEndpoint = (url?: string) =>
+  !!url && (url.includes('/auth/login') || url.includes('/auth/refresh'));
+
+// Attach access token to every request (excepto los endpoints de auth)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
-  if (token) {
+  if (token && !isAuthEndpoint(config.url)) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// On 401, try to refresh the token once
+// On 401, try to refresh the token once (nunca para los endpoints de auth)
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    if (error.response?.status === 401 && !original._retry && !isAuthEndpoint(original?.url)) {
       original._retry = true;
       const refresh = localStorage.getItem('refresh_token');
       if (refresh) {

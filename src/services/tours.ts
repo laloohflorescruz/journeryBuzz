@@ -19,6 +19,8 @@ export interface Penalty { window: string; penalty: string; refund: string; tone
 export interface AvailableDate { date: string; spots: number }
 export interface ItineraryStep { time: string; activity: string; description: string }
 export interface TourPrices { adult?: string; child?: string; senior?: string }
+/** POI compacto embebido en un tour (relación Tour↔POI). */
+export interface PoiBrief { id: number; name: string; slug: string }
 
 export interface Tour {
   id: number;
@@ -57,6 +59,7 @@ export interface Tour {
   company: CompanyBrief | null;
   categories: { id: number }[];
   activities: { id: number }[];
+  pois: PoiBrief[];
   creator_contact: { id: number } | null;
   created_at: string;
   updated_at: string;
@@ -98,6 +101,7 @@ export interface TourPayload {
   destination_id?: number | null;
   category_ids?: number[];
   activity_ids?: number[];
+  poi_ids?: number[];
 }
 
 /** Provider's own tours (server scopes to the caller's company). */

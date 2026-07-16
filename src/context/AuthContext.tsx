@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { getRecaptchaToken } from '../services/recaptcha';
 
 export interface UserProfile {
   id: number;
@@ -59,7 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const { data } = await api.post('/auth/login/', { username, password });
+    const recaptcha_token = await getRecaptchaToken('login');
+    const { data } = await api.post('/auth/login/', { username, password, recaptcha_token });
     localStorage.setItem('access_token', data.access);
     localStorage.setItem('refresh_token', data.refresh);
     localStorage.setItem('buzz_user', JSON.stringify(data.user));

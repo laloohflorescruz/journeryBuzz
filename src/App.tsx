@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useTranslation } from 'react-i18next';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import AnalyticsTracker from './components/AnalyticsTracker';
 import Sidebar from './components/Sidebar';
 import Icon from './components/Icon';
 import Footer from './components/Footer';
@@ -75,6 +76,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <AnalyticsTracker />
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
@@ -120,6 +122,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Ruta antigua unificada en /tours */}
+          <Route path="/poi-tours" element={<Navigate to="/tours" replace />} />
           <Route
             path="/itineraries"
             element={

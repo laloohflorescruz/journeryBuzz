@@ -21,7 +21,15 @@ const Login: React.FC = () => {
       await login(username, password);
       navigate('/', { replace: true });
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Invalid credentials. Please try again.';
+      // Distingue: sin respuesta = red/CORS/servidor caído; con respuesta = credenciales u otro.
+      let msg: string;
+      if (err.response) {
+        msg = err.response.data?.error || (err.response.status === 401
+          ? 'Credenciales inválidas. Inténtalo de nuevo.'
+          : `Error del servidor (${err.response.status}).`);
+      } else {
+        msg = 'No se pudo conectar con el servidor. Verifica que el backend esté activo y que este origen esté permitido (CORS).';
+      }
       setError(msg);
     } finally {
       setLoading(false);
