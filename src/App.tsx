@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import CityTours from './pages/CityTours';
 import ProviderProfile from './pages/ProviderProfile';
 import Hospedajes from './pages/Hospedajes';
+import RentACar from './pages/RentACar';
 import Tours from './pages/Tours';
 import Itineraries from './pages/Itineraries';
 import Reservations from './pages/Reservations';
@@ -81,11 +82,11 @@ function App() {
           {/* Public */}
           <Route path="/login" element={<Login />} />
 
-          {/* Protected — superadmin required */}
+          {/* Protegidas por permiso RBAC (ver src/lib/nav.ts, códigos de la API) */}
           <Route
             path="/"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute>
                 <AppLayout><Dashboard /></AppLayout>
               </ProtectedRoute>
             }
@@ -93,7 +94,7 @@ function App() {
           <Route
             path="/provider/:providerId"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="company:view">
                 <AppLayout><ProviderProfile /></AppLayout>
               </ProtectedRoute>
             }
@@ -101,7 +102,7 @@ function App() {
           <Route
             path="/hospedajes"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="accommodation:view">
                 <AppLayout><Hospedajes /></AppLayout>
               </ProtectedRoute>
             }
@@ -109,7 +110,7 @@ function App() {
           <Route
             path="/tours"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="tour:view">
                 <AppLayout><Tours /></AppLayout>
               </ProtectedRoute>
             }
@@ -117,8 +118,17 @@ function App() {
           <Route
             path="/city-tours"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requirePermission="tour:view">
                 <AppLayout><CityTours /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          {/* Gestión de flota. El aislamiento por empresa lo aplica la API. */}
+          <Route
+            path="/rent-a-car"
+            element={
+              <ProtectedRoute requirePermission="vehicle:view">
+                <AppLayout><RentACar /></AppLayout>
               </ProtectedRoute>
             }
           />
@@ -127,7 +137,7 @@ function App() {
           <Route
             path="/itineraries"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="tour:view">
                 <AppLayout><Itineraries /></AppLayout>
               </ProtectedRoute>
             }
@@ -135,7 +145,7 @@ function App() {
           <Route
             path="/reservations"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="booking:view">
                 <AppLayout><Reservations /></AppLayout>
               </ProtectedRoute>
             }
@@ -143,7 +153,7 @@ function App() {
           <Route
             path="/payments"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="payment:view">
                 <AppLayout><Payments /></AppLayout>
               </ProtectedRoute>
             }
@@ -151,7 +161,7 @@ function App() {
           <Route
             path="/reviews"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="review:view">
                 <AppLayout><Reviews /></AppLayout>
               </ProtectedRoute>
             }
@@ -159,7 +169,7 @@ function App() {
           <Route
             path="/reviews-by-tours"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="review:view">
                 <AppLayout><ReviewsByTours /></AppLayout>
               </ProtectedRoute>
             }
@@ -167,7 +177,7 @@ function App() {
           <Route
             path="/participants"
             element={
-              <ProtectedRoute requireRole="superadmin">
+              <ProtectedRoute requirePermission="booking:view">
                 <AppLayout><Participants /></AppLayout>
               </ProtectedRoute>
             }

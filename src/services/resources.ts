@@ -94,6 +94,22 @@ export async function listPayments(): Promise<Payment[]> {
   return data;
 }
 
+export interface RefundResult {
+  status: PaymentStatus;
+  success: boolean;
+}
+
+/** Reembolsa un pago cobrado. `amount` omitido = reembolso total.
+ *  La API responde 400 si la pasarela rechaza el reembolso (el pago NO cambia
+ *  de estado) y 503 si la pasarela no está configurada. */
+export async function refundPayment(id: number, amount?: string): Promise<RefundResult> {
+  const { data } = await api.post<RefundResult>(
+    `/payments/${id}/refund/`,
+    amount ? { amount } : {},
+  );
+  return data;
+}
+
 export async function listReviews(): Promise<Review[]> {
   const { data } = await api.get<Review[]>('/reviews/');
   return data;

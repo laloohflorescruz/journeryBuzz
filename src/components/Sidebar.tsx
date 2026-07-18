@@ -1,9 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { visibleNavItems } from '../lib/nav';
 import Icon from './Icon';
-
-interface NavItem { to: string; label: string; icon: string; end?: boolean }
 
 const itemClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 rounded-lg border-l-2 px-3 py-2 text-sm transition-colors ${
@@ -18,18 +17,9 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { t } = useTranslation();
 
   // Nota: Categorías y Actividades NO se gestionan en el panel del proveedor.
-  const navItems: NavItem[] = [
-    { to: '/', label: t('nav.dashboard'), icon: 'chart-bar', end: true },
-    { to: '/hospedajes', label: t('nav.hospedajes'), icon: 'bed' },
-    { to: '/tours', label: t('nav.tours'), icon: 'van' },
-    { to: '/city-tours', label: 'Tours de ciudad', icon: 'city' },
-    { to: '/itineraries', label: t('nav.itineraries'), icon: 'map' },
-    { to: '/reservations', label: t('nav.reservations'), icon: 'calendar' },
-    { to: '/payments', label: t('nav.payments'), icon: 'credit-card' },
-    { to: '/reviews', label: t('nav.reviews'), icon: 'star' },
-    { to: '/reviews-by-tours', label: t('nav.reviewsByTours'), icon: 'chart-pie' },
-    { to: '/participants', label: t('nav.participants'), icon: 'users' },
-  ];
+  // El menú se deriva de los permisos efectivos: no se muestra lo que el
+  // usuario no puede abrir (la ruta lo vuelve a comprobar igualmente).
+  const navItems = visibleNavItems(user);
 
   const role = (user?.role ?? user?.profile?.role ?? 'provider') as string;
   const initial = (user?.username?.[0] ?? 'B').toUpperCase();
@@ -57,7 +47,7 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
         {navItems.map((it) => (
           <NavLink key={it.to} to={it.to} end={it.end} className={itemClass} onClick={onNavigate}>
             <Icon name={it.icon} className="h-5 w-5 shrink-0" />
-            <span className="truncate">{it.label}</span>
+            <span className="truncate">{t(it.labelKey)}</span>
           </NavLink>
         ))}
       </nav>

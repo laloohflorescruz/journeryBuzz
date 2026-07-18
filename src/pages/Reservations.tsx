@@ -1,204 +1,311 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { listBookings, type Booking } from '../services/resources';
+import Icon from '../components/Icon';
+import { useAuth } from '../context/AuthContext';
+import {
+  listBookings, confirmBooking, cancelBooking,
+  type Booking, type BookingStatus,
+} from '../services/resources';
 
-interface Reservation {
-  id: number;
-  customerName: string;
-  tourName: string;
-  date: string;
-  participants: number;
-  status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
-  price: number;
-  currency: string;
-  contactEmail: string;
-  contactPhone: string;
-}
+const PAGE_SIZE = 8;
 
-function toReservation(b: Booking): Reservation {
-  return {
-    id: b.id,
-    customerName: b.customer_username || b.contact_name || '—',
-    tourName: b.tour?.name || '—',
-    date: b.scheduled_date || '—',
-    participants: b.participants,
-    status: b.status,
-    price: Number(b.total_amount),
-    currency: b.currency,
-    contactEmail: b.contact_email,
-    contactPhone: b.contact_phone,
-  };
-}
+// Mismo lenguaje visual que Tours/POIs: badge sobrio por estado.
+const STATUS_STYLE: Record<BookingStatus, string> = {
+  confirmed: 'bg-emerald-50 text-emerald-700',
+  completed: 'bg-sky-50 text-sky-700',
+  pending: 'bg-amber-50 text-amber-700',
+  cancelled: 'bg-rose-50 text-rose-700',
+};
 
-const money = (amount: number, currency: string) => `${currency} ${amount.toLocaleString()}`;
+const STATUS_FILTERS: (BookingStatus | 'all')[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
+
+const money = (amount: string, currency: string) =>
+  `${currency} ${Number(amount).toLocaleString()}`;
+
+const fmtDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('es', { dateStyle: 'medium' }) : '—';
 
 function Reservations() {
   const { t } = useTranslation();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  // Espejo de lo que exige la API: confirmar y cancelar la reserva de otro
+  // requieren booking:update (el cliente puede cancelar la suya, pero eso no
+  // ocurre en este panel). Sin el permiso el botón daría 403, así que se oculta.
+  const { can } = useAuth();
+  const canConfirm = can('booking:update');
+  const canCancel = can('booking:update');
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const itemsPerPage = 8;
+  const [actionId, setActionId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<BookingStatus | 'all'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selected, setSelected] = useState<Booking | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     listBookings()
-      .then((data) => { if (active) { setReservations(data.map(toReservation)); setError(null); } })
+      .then((data) => { if (active) { setBookings(data); setError(null); } })
       .catch(() => { if (active) setError(t('common.loadError', 'No se pudieron cargar los datos.')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [t]);
 
-  const totalPages = Math.ceil(reservations.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentReservations = reservations.slice(startIndex, endIndex);
+  const statusLabel = (status: string) => t(`common.${status}`, status);
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const renderPagination = () => {
-    const pages: (number | string)[] = [];
-    const maxVisiblePages = 5;
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (currentPage <= 3) pages.push(1, 2, 3, 4, '...', totalPages);
-      else if (currentPage >= totalPages - 2) pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      else pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+  // Confirmar/cancelar reemplazan la fila con la reserva que devuelve la API,
+  // así el estado mostrado siempre es el del servidor.
+  const runAction = async (id: number, action: (id: number) => Promise<Booking>) => {
+    setActionId(id);
+    setActionError(null);
+    try {
+      const updated = await action(id);
+      setBookings((list) => list.map((b) => (b.id === id ? updated : b)));
+      setSelected((s) => (s && s.id === id ? updated : s));
+    } catch {
+      setActionError('No se pudo actualizar la reserva. Puede que no tengas permiso para esta acción.');
+    } finally {
+      setActionId(null);
     }
-    return pages;
   };
 
-  const handleViewDetails = (reservation: Reservation) => {
-    setSelectedReservation(reservation);
-    setIsModalOpen(true);
-  };
+  const filtered = bookings.filter((b) => {
+    const matchStatus = statusFilter === 'all' || b.status === statusFilter;
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q ||
+      (b.customer_username ?? '').toLowerCase().includes(q) ||
+      b.contact_name.toLowerCase().includes(q) ||
+      b.contact_email.toLowerCase().includes(q) ||
+      (b.tour?.name ?? '').toLowerCase().includes(q);
+    return matchStatus && matchSearch;
+  });
 
-  const getStatusLabel = (status: string) => {
-    if (status === 'confirmed') return t('common.confirmed');
-    if (status === 'pending') return t('common.pending');
-    if (status === 'cancelled') return t('common.cancelled');
-    if (status === 'completed') return t('common.completed');
-    return status;
-  };
-
-  const statusClass = (status: string) =>
-    status === 'confirmed' || status === 'completed' ? 'bg-green-200 text-green-800' :
-    status === 'pending' ? 'bg-yellow-200 text-yellow-800' :
-    'bg-red-200 text-red-800';
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const page = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const isFiltered = statusFilter !== 'all' || search.trim() !== '';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-lime-50 to-yellow-50">
-      <div className="bg-gradient-to-r from-green-600 via-lime-600 to-yellow-600 text-white py-20">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-6xl font-bold mb-6">📅 {t('reservations.title')}</h1>
-          <p className="text-xl opacity-90 max-w-3xl mx-auto leading-relaxed">{t('reservations.subtitle')}</p>
+    <div className="mx-auto max-w-6xl">
+      {/* Encabezado */}
+      <div className="mb-6">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
+          <Icon name="calendar" className="h-6 w-6 text-emerald-600" /> {t('reservations.title')}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {filtered.length} {filtered.length === 1 ? 'reserva' : 'reservas'}
+          {isFiltered ? ' (filtradas)' : ' en total'}
+        </p>
+      </div>
+
+      {/* Filtros */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Buscar por cliente, email o tour…"
+            className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {STATUS_FILTERS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => { setStatusFilter(s); setCurrentPage(1); }}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                statusFilter === s
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-300 text-slate-600 hover:border-slate-400'
+              }`}
+            >
+              {s === 'all' ? t('common.all') : statusLabel(s)}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-16">
-        {loading && <p className="text-center text-gray-500 py-10">{t('common.loading', 'Cargando...')}</p>}
-        {error && <p className="text-center text-red-600 py-10">{error}</p>}
-        {!loading && !error && reservations.length === 0 && (
-          <p className="text-center text-gray-500 py-10">{t('common.noData', 'No hay datos para mostrar.')}</p>
-        )}
+      {actionError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{actionError}</div>
+      )}
 
-        {!loading && !error && reservations.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white rounded-xl shadow-lg">
-            <thead>
-              <tr className="bg-green-600 text-white">
-                <th className="py-3 px-6 text-left">{t('reservations.customer')}</th>
-                <th className="py-3 px-6 text-left">{t('reservations.tourItinerary')}</th>
-                <th className="py-3 px-6 text-left">{t('common.date')}</th>
-                <th className="py-3 px-6 text-left">{t('reservations.participants')}</th>
-                <th className="py-3 px-6 text-left">{t('common.status')}</th>
-                <th className="py-3 px-6 text-left">{t('reservations.priceEur')}</th>
-                <th className="py-3 px-6 text-left">{t('reservations.contact')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentReservations.map((reservation) => (
-                <tr key={reservation.id} className="border-b border-gray-200 hover:bg-green-100 transition-colors">
-                  <td className="py-4 px-6">{reservation.customerName}</td>
-                  <td className="py-4 px-6">{reservation.tourName}</td>
-                  <td className="py-4 px-6">{reservation.date}</td>
-                  <td className="py-4 px-6">{reservation.participants}</td>
-                  <td className="py-4 px-6">
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusClass(reservation.status)}`}>
-                      {getStatusLabel(reservation.status)}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">{money(reservation.price, reservation.currency)}</td>
-                  <td className="py-4 px-6">
-                    <div>{reservation.contactEmail}</div>
-                    <div>{reservation.contactPhone}</div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <button onClick={() => handleViewDetails(reservation)} className="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 transition-colors text-sm">
-                      {t('common.viewDetails')}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
+          {t('common.loading', 'Cargando…')}
         </div>
-        )}
-
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center space-x-2 mt-6">
-            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-              {t('common.previous')}
-            </button>
-            {renderPagination().map((page, index) => (
-              <button key={index} onClick={() => typeof page === 'number' && handlePageChange(page)} disabled={page === '...'}
-                className={`px-4 py-2 rounded-lg border transition-colors ${page === currentPage ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 hover:bg-gray-50'}`}>
-                {page}
-              </button>
-            ))}
-            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-              {t('common.next')}
-            </button>
+      ) : error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <Icon name="calendar" className="h-6 w-6" />
           </div>
-        )}
+          <h3 className="text-base font-semibold text-slate-900">
+            {bookings.length === 0 ? 'Aún no hay reservas' : 'Ninguna reserva coincide con el filtro'}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">{t('reservations.subtitle')}</p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">{t('reservations.customer')}</th>
+                  <th className="px-4 py-3">{t('reservations.tourItinerary')}</th>
+                  <th className="px-4 py-3">{t('common.date')}</th>
+                  <th className="px-4 py-3 text-center">{t('reservations.participants')}</th>
+                  <th className="px-4 py-3">{t('reservations.price')}</th>
+                  <th className="px-4 py-3">{t('common.status')}</th>
+                  <th className="px-4 py-3 text-right">{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginated.map((b) => {
+                  const name = b.customer_username || b.contact_name || '—';
+                  const busy = actionId === b.id;
+                  return (
+                    <tr key={b.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                            {name.charAt(0).toUpperCase()}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-800">{name}</p>
+                            {b.contact_email && <p className="truncate text-xs text-slate-400">{b.contact_email}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{b.tour?.name || '—'}</td>
+                      <td className="px-4 py-3 text-slate-500">{fmtDate(b.scheduled_date)}</td>
+                      <td className="px-4 py-3 text-center text-slate-600">{b.participants}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-slate-700">{money(b.total_amount, b.currency)}</span>
+                        {b.is_paid && (
+                          <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Pagada</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[b.status]}`}>
+                          {statusLabel(b.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                          {b.status === 'pending' && canConfirm && (
+                            <button
+                              type="button" disabled={busy}
+                              onClick={() => runAction(b.id, confirmBooking)}
+                              className="rounded-lg border border-emerald-300 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-40"
+                            >
+                              Confirmar
+                            </button>
+                          )}
+                          {b.status !== 'cancelled' && b.status !== 'completed' && canCancel && (
+                            <button
+                              type="button" disabled={busy}
+                              onClick={() => runAction(b.id, cancelBooking)}
+                              className="rounded-lg px-2.5 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-40"
+                            >
+                              {t('common.cancel')}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelected(b)}
+                            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                            title={t('common.viewDetails')}
+                          >
+                            <Icon name="search" className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-        {isModalOpen && selectedReservation && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-800">{t('reservations.details')}</h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <button
+                type="button" onClick={() => setCurrentPage((p) => p - 1)} disabled={page === 1}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900 hover:bg-slate-50 disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:bg-transparent"
+              >
+                {t('common.previous')}
+              </button>
+              <span className="text-sm text-slate-500">{t('common.pageOf', { current: page, total: totalPages })}</span>
+              <button
+                type="button" onClick={() => setCurrentPage((p) => p + 1)} disabled={page === totalPages}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900 hover:bg-slate-50 disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:bg-transparent"
+              >
+                {t('common.next')}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Detalle */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setSelected(null)}>
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="text-base font-semibold text-slate-900">{t('reservations.details')}</h3>
+              <button
+                type="button" onClick={() => setSelected(null)}
+                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              >
+                <Icon name="close" className="h-4 w-4" />
+              </button>
+            </div>
+            <dl className="space-y-3 px-5 py-4 text-sm">
+              {[
+                [t('reservations.customer'), selected.customer_username || selected.contact_name || '—'],
+                [t('reservations.tourItinerary'), selected.tour?.name || '—'],
+                [t('common.date'), fmtDate(selected.scheduled_date)],
+                [t('reservations.participants'), String(selected.participants)],
+                [t('reservations.price'), money(selected.total_amount, selected.currency)],
+                [t('reservations.contactEmail'), selected.contact_email || '—'],
+                [t('reservations.contactPhone'), selected.contact_phone || '—'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4">
+                  <dt className="text-slate-500">{label}</dt>
+                  <dd className="text-right font-medium text-slate-800">{value}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">{t('common.status')}</dt>
+                <dd>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[selected.status]}`}>
+                    {statusLabel(selected.status)}
+                  </span>
+                </dd>
               </div>
-              <div className="space-y-4">
-                <p><strong>{t('reservations.customer')}:</strong> {selectedReservation.customerName}</p>
-                <p><strong>{t('reservations.tourItinerary')}:</strong> {selectedReservation.tourName}</p>
-                <p><strong>{t('common.date')}:</strong> {selectedReservation.date}</p>
-                <p><strong>{t('reservations.participants')}:</strong> {selectedReservation.participants}</p>
-                <p><strong>{t('common.status')}:</strong> {getStatusLabel(selectedReservation.status)}</p>
-                <p><strong>{t('reservations.priceEur')}:</strong> {money(selectedReservation.price, selectedReservation.currency)}</p>
-                <p><strong>{t('reservations.contactEmail')}:</strong> {selectedReservation.contactEmail}</p>
-                <p><strong>{t('reservations.contactPhone')}:</strong> {selectedReservation.contactPhone}</p>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                  {t('common.close')}
-                </button>
-              </div>
+              {selected.notes && (
+                <div className="border-t border-slate-100 pt-3">
+                  <dt className="mb-1 text-slate-500">Notas</dt>
+                  <dd className="text-slate-700">{selected.notes}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
+              <button
+                type="button" onClick={() => setSelected(null)}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                {t('common.close')}
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

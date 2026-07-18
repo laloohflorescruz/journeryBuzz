@@ -222,9 +222,13 @@ const Tours = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.profile?.role === 'superadmin';
-  const canEdit = (t: TourRow) => isAdmin || t.creator_contact?.id === user?.id;
+  // Permisos RBAC: sin ellos la API rechaza la escritura, así que no se ofrece.
+  const canCreate = can('tour:create');
+  const canDelete = can('tour:delete');
+  const canEdit = (t: TourRow) =>
+    can('tour:update') && (isAdmin || t.creator_contact?.id === user?.id);
 
   const [view, setView] = useState<'list' | 'create'>('list');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -378,10 +382,12 @@ const Tours = () => {
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
             <Icon name="van" className="h-6 w-6 text-emerald-600" /> Tours
           </h1>
+          {canCreate && (
           <button type="button" onClick={startCreate}
             className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800">
             <Icon name="plus" className="h-4 w-4" /> Crear tour
           </button>
+          )}
         </div>
 
         {success && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{success}</div>}
@@ -393,7 +399,7 @@ const Tours = () => {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400"><Icon name="van" className="h-6 w-6" /></div>
             <h3 className="text-base font-semibold text-slate-900">Aún no has creado tours</h3>
             <p className="mt-1 text-sm text-slate-500">Crea tu primer tour y vincúlalo a tus puntos de interés.</p>
-            <button type="button" onClick={startCreate} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"><Icon name="plus" className="h-4 w-4" /> Crear tour</button>
+            {canCreate && <button type="button" onClick={startCreate} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"><Icon name="plus" className="h-4 w-4" /> Crear tour</button>}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
@@ -442,7 +448,7 @@ const Tours = () => {
                       ) : canEdit(t) ? (
                         <span className="inline-flex items-center gap-1 whitespace-nowrap">
                           <button type="button" onClick={() => startEdit(t.id)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600" title="Editar"><Icon name="pencil" className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => setDeleteId(t.id)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500" title="Eliminar"><Icon name="close" className="h-4 w-4" /></button>
+                          {canDelete && <button type="button" onClick={() => setDeleteId(t.id)} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500" title="Eliminar"><Icon name="close" className="h-4 w-4" /></button>}
                         </span>
                       ) : (
                         <span className="text-xs text-slate-400" title="Solo el creador puede editar">Solo lectura</span>

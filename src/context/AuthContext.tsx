@@ -9,6 +9,11 @@ export interface UserProfile {
   avatar: string;
 }
 
+export interface RoleRef {
+  slug: string;
+  name: string;
+}
+
 export interface AuthUser {
   id: number;
   username: string;
@@ -17,6 +22,10 @@ export interface AuthUser {
   last_name: string;
   role: string;
   profile: UserProfile;
+  /** Códigos de permiso efectivos que devuelve /auth/me/ (['*'] = superadmin). */
+  permissions?: string[];
+  /** Roles dinámicos asignados (RBAC). */
+  roles?: RoleRef[];
 }
 
 interface AuthContextValue {
@@ -26,6 +35,17 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   isSuperAdmin: () => boolean;
   isAdminOrAbove: () => boolean;
+  /** ¿El usuario tiene este permiso? (ej. 'vehicle:view'). '*' concede todo. */
+  can: (code: string) => boolean;
+}
+
+const WILDCARD = '*';
+
+/** Comprobación pura, reutilizable fuera del hook (ej. filtrar el menú). */
+export function userCan(user: AuthUser | null, code: string): boolean {
+  const perms = user?.permissions;
+  if (!perms) return false;
+  return perms.includes(WILDCARD) || perms.includes(code);
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -81,9 +101,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isSuperAdmin = useCallback(() => user?.role === 'superadmin' || user?.profile?.role === 'superadmin', [user]);
   const isAdminOrAbove = useCallback(() => ['superadmin', 'admin'].includes(user?.role ?? user?.profile?.role ?? ''), [user]);
+  const can = useCallback((code: string) => userCan(user, code), [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isSuperAdmin, isAdminOrAbove }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isSuperAdmin, isAdminOrAbove, can }}>
       {children}
     </AuthContext.Provider>
   );
