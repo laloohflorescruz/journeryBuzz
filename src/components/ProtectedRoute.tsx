@@ -1,21 +1,20 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
 interface Props {
   children: React.ReactNode;
+  // Se conservan por compatibilidad con las rutas de App.tsx, pero el acceso a
+  // Backpacking Buzz es exclusivo de superadmin: el gate real es el rol.
   requireRole?: 'superadmin' | 'admin';
-  /** Permiso RBAC exigido (ej. 'vehicle:view'). Se resuelve con los permisos
-   *  efectivos que envía la API en /auth/me/; '*' (superadmin) concede todo.
-   *  Preferible a `requireRole`: el acceso lo decide el rol dinámico, no un
-   *  string de rol hardcodeado en el frontend. */
   requirePermission?: string;
 }
 
-const ProtectedRoute: React.FC<Props> = ({ children, requireRole, requirePermission }) => {
-  const { user, loading, can } = useAuth();
+const ProtectedRoute: React.FC<Props> = ({ children }) => {
+  const { user, loading, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useTranslation();
 
   if (loading) {
@@ -35,42 +34,28 @@ const ProtectedRoute: React.FC<Props> = ({ children, requireRole, requirePermiss
 
   const role = user.role ?? user.profile?.role;
 
-  if (requireRole === 'superadmin' && role !== 'superadmin') {
+  // Backpacking Buzz es el panel de administración: SOLO superadmin entra.
+  if (role !== 'superadmin') {
+    const handleLogout = async () => {
+      await logout();
+      navigate('/login', { replace: true });
+    };
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-xl">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-xl max-w-sm">
           <div className="text-5xl mb-4">🚫</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('protected.accessDenied')}</h2>
           <p className="text-gray-600">{t('protected.requiresSuperAdmin')}</p>
-          <p className="text-sm text-gray-400 mt-2">{t('protected.yourRole')} <strong>{role}</strong></p>
-        </div>
-      </div>
-    );
-  }
-
-  if (requireRole === 'admin' && !['superadmin', 'admin'].includes(role ?? '')) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-xl">
-          <div className="text-5xl mb-4">🚫</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('protected.accessDenied')}</h2>
-          <p className="text-gray-600">{t('protected.requiresAdmin')}</p>
-          <p className="text-sm text-gray-400 mt-2">{t('protected.yourRole')} <strong>{role}</strong></p>
-        </div>
-      </div>
-    );
-  }
-
-  if (requirePermission && !can(requirePermission)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-xl">
-          <div className="text-5xl mb-4">🚫</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('protected.accessDenied')}</h2>
-          <p className="text-gray-600">{t('protected.requiresPermission')}</p>
-          <p className="mt-2 text-sm text-gray-400">
-            {t('protected.missingPermission')} <strong>{requirePermission}</strong>
+          <p className="text-sm text-gray-400 mt-2">
+            {t('protected.yourRole')} <strong>{role ?? '—'}</strong>
           </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="mt-6 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+          >
+            {t('nav.logout', 'Cerrar sesión')}
+          </button>
         </div>
       </div>
     );

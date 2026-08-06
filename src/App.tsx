@@ -20,6 +20,13 @@ import Payments from './pages/Payments';
 import Reviews from './pages/Reviews';
 import ReviewsByTours from './pages/ReviewsByTours';
 import Participants from './pages/Participants';
+import POIs from './pages/POIs';
+import Destinations from './pages/Destinations';
+import Geography from './pages/Geography';
+import Categories from './pages/Categories';
+import Activities from './pages/Activities';
+import Users from './pages/Users';
+import Roles from './pages/Roles';
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -182,6 +189,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Catálogo global e identidad (superadmin). El acceso lo aplica
+              ProtectedRoute: buzz es superadmin-only. */}
+          <Route path="/pois" element={<ProtectedRoute><AppLayout><POIs /></AppLayout></ProtectedRoute>} />
+          <Route path="/destinations" element={<ProtectedRoute><AppLayout><Destinations /></AppLayout></ProtectedRoute>} />
+          <Route path="/geography" element={<ProtectedRoute><AppLayout><Geography /></AppLayout></ProtectedRoute>} />
+          <Route path="/categories" element={<ProtectedRoute><AppLayout><Categories /></AppLayout></ProtectedRoute>} />
+          <Route path="/activities" element={<ProtectedRoute><AppLayout><Activities /></AppLayout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><AppLayout><Users /></AppLayout></ProtectedRoute>} />
+          <Route path="/roles" element={<ProtectedRoute><AppLayout><Roles /></AppLayout></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

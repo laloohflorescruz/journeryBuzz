@@ -38,7 +38,7 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
         </span>
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold leading-tight text-white">Backpacking Buzz</div>
-          <div className="text-[11px] text-slate-400">{t('nav.providerPanel', 'Panel de proveedor')}</div>
+          <div className="text-[11px] text-slate-400">{t('nav.adminPanel', 'Panel de administración')}</div>
         </div>
       </div>
 

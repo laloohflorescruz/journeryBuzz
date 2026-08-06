@@ -31,7 +31,7 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   isSuperAdmin: () => boolean;
   isAdminOrAbove: () => boolean;
@@ -86,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('refresh_token', data.refresh);
     localStorage.setItem('buzz_user', JSON.stringify(data.user));
     setUser(data.user);
+    return data.user as AuthUser;
   }, []);
 
   const logout = useCallback(async () => {

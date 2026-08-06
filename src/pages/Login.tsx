@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
 const Login: React.FC = () => {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [username, setUsername] = useState('');
@@ -18,7 +18,14 @@ const Login: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-      await login(username, password);
+      const user = await login(username, password);
+      // Buzz es exclusivo para superadmin: si el rol no lo es, no se permite el acceso.
+      const role = user.role ?? user.profile?.role;
+      if (role !== 'superadmin') {
+        await logout();
+        setError(t('login.onlySuperadmin', 'Acceso restringido: solo los superadministradores pueden entrar a Backpacking Buzz.'));
+        return;
+      }
       navigate('/', { replace: true });
     } catch (err: any) {
       // Distingue: sin respuesta = red/CORS/servidor caído; con respuesta = credenciales u otro.

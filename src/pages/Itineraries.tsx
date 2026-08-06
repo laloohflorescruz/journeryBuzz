@@ -1,551 +1,498 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import Icon, { resolveIcon } from '../components/Icon';
+import IconSelect, { type IconOption } from '../components/IconSelect';
+import {
+  listItineraries, getItinerary, createItinerary, updateItinerary, deleteItinerary,
+  type Itinerary, type ItineraryPayload, type Difficulty,
+} from '../services/itineraries';
 
-interface ItineraryFormData {
-  title: string;
-  description: string;
-  start_date: string;
-  end_date: string;
-  destinations: string[];
-  category: string;
-  difficulty: string;
-  highlights: string[];
-  image: string;
-}
+// CRUD de itinerarios conectado a /itineraries/. Mismo lenguaje visual sobrio
+// que Hospedajes/Tours: lista + formulario a página completa (sin modal), datos
+// reales y escritura reservada a admin (la API es IsAdminOrReadOnly).
 
-interface Itinerary {
-  id: number;
-  title: string;
-  description: string;
-  start_date: string;
-  end_date: string;
-  destinations: string[];
-  category: string;
-  difficulty: string;
-  highlights: string[];
-  image: string;
+interface CategoryDb { id: number; name_en: string; name_es: string; icon: string; is_active: boolean }
+
+const PAGE_SIZE = 10;
+
+const DIFFICULTIES: Difficulty[] = ['Fácil', 'Moderado', 'Difícil'];
+const DIFFICULTY_STYLE: Record<Difficulty, string> = {
+  'Fácil': 'bg-emerald-50 text-emerald-700',
+  'Moderado': 'bg-amber-50 text-amber-700',
+  'Difícil': 'bg-rose-50 text-rose-700',
+};
+
+// Iconos representativos sugeridos (set compartido Icon.tsx). El modelo guarda
+// el nombre del icono, no un emoji; por defecto 'landmark'.
+const IMAGE_ICONS: IconOption[] = [
+  { value: 'landmark', label: 'Monumento', icon: 'landmark' },
+  { value: 'map', label: 'Mapa', icon: 'map' },
+  { value: 'mountain', label: 'Montaña', icon: 'mountain' },
+  { value: 'beach', label: 'Playa', icon: 'beach' },
+  { value: 'waves', label: 'Costa / mar', icon: 'waves' },
+  { value: 'tree', label: 'Naturaleza', icon: 'tree' },
+  { value: 'tent', label: 'Acampada', icon: 'tent' },
+  { value: 'hiking', label: 'Senderismo', icon: 'hiking' },
+  { value: 'compass', label: 'Aventura', icon: 'compass' },
+  { value: 'globe', label: 'Mundo', icon: 'globe' },
+  { value: 'city', label: 'Ciudad', icon: 'city' },
+  { value: 'church', label: 'Religioso', icon: 'church' },
+  { value: 'camera', label: 'Fotografía', icon: 'camera' },
+  { value: 'plane', label: 'Vuelo', icon: 'plane' },
+  { value: 'ticket', label: 'Cultura / espectáculo', icon: 'ticket' },
+  { value: 'star', label: 'Destacado', icon: 'star' },
+];
+
+// Slug normalizado de una categoría (ej. 'Aventura y naturaleza' → 'aventura-y-naturaleza').
+const toSlug = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+const fieldClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
+const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
+
+const EMPTY_FORM = () => ({
+  title: '', description: '', category: '', difficulty: 'Fácil' as Difficulty,
+  duration: '', start_date: '', end_date: '',
+  destinations: [] as string[], highlights: [] as string[], tips: [] as string[],
+  image: 'landmark', latitude: '', longitude: '',
+});
+type FormState = ReturnType<typeof EMPTY_FORM>;
+
+// Editor de lista de textos (destinos, destacados, consejos): mismo patrón que
+// los servicios en Hospedajes.
+function StringList({ label, hint, items, placeholder, onChange }: {
+  label: string; hint?: string; items: string[]; placeholder: string;
+  onChange: (v: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <label className={labelClass}>{label}{hint && <span className="ml-1 font-normal text-slate-400">{hint}</span>}</label>
+      <div className="space-y-2">
+        {items.map((v, i) => (
+          <div key={i} className="flex gap-2">
+            <input value={v} className={fieldClass} placeholder={placeholder}
+              onChange={(e) => onChange(items.map((x, j) => (j === i ? e.target.value : x)))} />
+            <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))}
+              className="rounded-lg px-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500">
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        <button type="button" onClick={() => onChange([...items, ''])}
+          className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700">
+          <Icon name="plus" className="h-4 w-4" /> {t('common.add')}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function Itineraries() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  // La API exige admin (o superior) para escribir; sin ello no ofrecemos acciones.
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.profile?.role === 'superadmin';
+
+  const [view, setView] = useState<'list' | 'form'>('list');
+  const [items, setItems] = useState<Itinerary[]>([]);
+  const [categories, setCategories] = useState<CategoryDb[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [filterDifficulty, setFilterDifficulty] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingItinerary, setEditingItinerary] = useState<Itinerary | null>(null);
-  const itemsPerPage = 10;
 
-  // Mock itineraries data
-  const [itineraries, setItineraries] = useState<Itinerary[]>([
-    {
-      id: 1,
-      title: 'Madrid en 3 Días',
-      description: 'Descubre la capital española con este itinerario perfecto para un fin de semana largo.',
-      start_date: '2024-01-15',
-      end_date: '2024-01-18',
-      destinations: ['Madrid'],
-      category: 'cultural',
-      difficulty: 'Fácil',
-      highlights: ['Museo del Prado', 'Plaza Mayor', 'Parque del Retiro'],
-      image: '🏛️'
-    },
-    {
-      id: 2,
-      title: 'Costa Caribe Dominicana',
-      description: 'Aventura y relax en las playas más hermosas del Caribe.',
-      start_date: '2024-02-01',
-      end_date: '2024-02-08',
-      destinations: ['Punta Cana', 'Samaná', 'Miches'],
-      category: 'adventure',
-      difficulty: 'Moderado',
-      highlights: ['Playas vírgenes', 'Observación de ballenas', 'Kayak en manglares'],
-      image: '🏖️'
-    },
-    {
-      id: 3,
-      title: 'Barcelona Modernista',
-      description: 'Sumérgete en la arquitectura de Gaudí y la cultura catalana.',
-      start_date: '2024-03-10',
-      end_date: '2024-03-15',
-      destinations: ['Barcelona'],
-      category: 'cultural',
-      difficulty: 'Fácil',
-      highlights: ['Sagrada Familia', 'Park Güell', 'La Rambla'],
-      image: '🎭'
-    },
-    {
-      id: 4,
-      title: 'Aventura en los Andes',
-      description: 'Senderismo y cultura en las alturas de Perú.',
-      start_date: '2024-04-01',
-      end_date: '2024-04-11',
-      destinations: ['Cusco', 'Machu Picchu', 'Valle Sagrado'],
-      category: 'adventure',
-      difficulty: 'Difícil',
-      highlights: ['Machu Picchu', 'Camino Inca', 'Lago Titicaca'],
-      image: '🏔️'
-    },
-    {
-      id: 5,
-      title: 'México Colonial',
-      description: 'Historia y cultura en las ciudades coloniales mexicanas.',
-      start_date: '2024-05-01',
-      end_date: '2024-05-09',
-      destinations: ['Ciudad de México', 'Oaxaca', 'Puebla'],
-      category: 'cultural',
-      difficulty: 'Moderado',
-      highlights: ['Pirámides de Teotihuacan', 'Centro Histórico', 'Mercados tradicionales'],
-      image: '🌍'
-    },
-    {
-      id: 6,
-      title: 'Argentina Patagónica',
-      description: 'Glaciares, lagos y fauna única en el fin del mundo.',
-      start_date: '2024-06-01',
-      end_date: '2024-06-13',
-      destinations: ['Buenos Aires', 'El Calafate', 'Ushuaia'],
-      category: 'nature',
-      difficulty: 'Moderado',
-      highlights: ['Glaciar Perito Moreno', 'Tierra del Fuego', 'Pingüinos'],
-      image: '🧊'
-    }
-  ]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM());
 
-  // Pagination logic
-  const totalPages = Math.ceil(itineraries.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentItineraries = itineraries.slice(startIndex, endIndex);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const load = () => {
+    setLoading(true);
+    listItineraries()
+      .then((data) => { setItems(data); setError(''); })
+      .catch(() => setError(t('common.loadError', 'No se pudieron cargar los itinerarios.')))
+      .finally(() => setLoading(false));
   };
 
-  const renderPagination = () => {
-    const pages: (number | string)[] = [];
-    const maxVisiblePages = 5;
+  useEffect(() => {
+    load();
+    // Categorías siempre desde la BD (regla del proyecto), nunca lista fija.
+    api.get('/categories/').then(({ data }) => setCategories(data)).catch(() => setCategories([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...', totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  const catName = (c: CategoryDb) => (i18n.language.startsWith('en') ? c.name_en : c.name_es) || c.name_es || c.name_en;
+  // Opciones de categoría desde la BD, con su icono; el valor guardado es el slug.
+  const categoryOptions = useMemo<IconOption[]>(() => {
+    const opts = categories
+      .filter((c) => c.is_active)
+      .map((c) => ({ value: toSlug(catName(c)), label: catName(c), icon: c.icon }));
+    // Si el itinerario en edición tiene una categoría que ya no existe, la conservamos visible.
+    if (form.category && !opts.some((o) => o.value === form.category)) {
+      opts.unshift({ value: form.category, label: form.category, icon: 'tag' });
+    }
+    return opts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, form.category, i18n.language]);
+
+  const categoryLabel = (slug: string) => categoryOptions.find((o) => o.value === slug)?.label || slug || '—';
+
+  const startCreate = () => {
+    setError(''); setSuccess('');
+    setForm(EMPTY_FORM());
+    setEditingId(null);
+    setView('form');
+  };
+
+  const startEdit = async (id: number) => {
+    setError(''); setSuccess('');
+    try {
+      const it = await getItinerary(id);
+      setForm({
+        title: it.title ?? '', description: it.description ?? '',
+        category: it.category ?? '', difficulty: it.difficulty || 'Fácil',
+        duration: it.duration ? String(it.duration) : '',
+        start_date: it.start_date ?? '', end_date: it.end_date ?? '',
+        destinations: it.destinations ?? [], highlights: it.highlights ?? [], tips: it.tips ?? [],
+        image: it.image || 'landmark',
+        latitude: it.latitude ? String(it.latitude) : '', longitude: it.longitude ? String(it.longitude) : '',
+      });
+      setEditingId(id);
+      setView('form');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      setError('No se pudo cargar el itinerario para editar.');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    if (!form.title.trim()) { setError('El título es obligatorio.'); return; }
+    setSaving(true);
+    const payload: ItineraryPayload = {
+      title: form.title.trim(),
+      description: form.description,
+      category: form.category,
+      difficulty: form.difficulty,
+      duration: Number(form.duration) || 0,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+      destinations: form.destinations.map((d) => d.trim()).filter(Boolean),
+      highlights: form.highlights.map((h) => h.trim()).filter(Boolean),
+      tips: form.tips.map((tp) => tp.trim()).filter(Boolean),
+      image: form.image || 'landmark',
+      latitude: Number(form.latitude) || 0,
+      longitude: Number(form.longitude) || 0,
+    };
+    try {
+      if (editingId) {
+        await updateItinerary(editingId, payload);
+        setSuccess('Itinerario actualizado correctamente.');
       } else {
-        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        await createItinerary(payload);
+        setSuccess('Itinerario creado correctamente.');
       }
-    }
-
-    return pages;
-  };
-
-  const handleAddItinerary = () => {
-    setEditingItinerary(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEditItinerary = (itinerary: Itinerary) => {
-    setEditingItinerary(itinerary);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteItinerary = (id: number) => {
-    if (window.confirm(t('itineraries.confirmDelete'))) {
-      setItineraries(itineraries.filter(i => i.id !== id));
+      setView('list');
+      setEditingId(null);
+      load();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      const detail = (err as { response?: { data?: unknown } })?.response?.data;
+      setError(typeof detail === 'string' ? detail : 'No se pudo guardar el itinerario. Revisa los campos.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleSaveItinerary = (itineraryData: ItineraryFormData) => {
-    if (editingItinerary) {
-      setItineraries(itineraries.map(i =>
-        i.id === editingItinerary.id
-          ? { ...i, ...itineraryData }
-          : i
-      ));
-    } else {
-      const newItinerary: Itinerary = {
-        id: Math.max(...itineraries.map(i => i.id)) + 1,
-        ...itineraryData
-      };
-      setItineraries([...itineraries, newItinerary]);
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteItinerary(id);
+      setDeleteId(null);
+      load();
+    } catch {
+      setDeleteId(null);
+      setError('No se pudo eliminar el itinerario.');
     }
-    setIsModalOpen(false);
-    setEditingItinerary(null);
   };
 
+  // ── Filtrado / paginación ──
+  const filtered = items.filter((it) => {
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q ||
+      it.title.toLowerCase().includes(q) ||
+      (it.destinations ?? []).some((d) => d.toLowerCase().includes(q));
+    const matchDifficulty = !filterDifficulty || it.difficulty === filterDifficulty;
+    return matchSearch && matchDifficulty;
+  });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const page = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const isFiltered = !!search.trim() || !!filterDifficulty;
+
+  // ─────────────────────────── FORM ───────────────────────────
+  if (view === 'form') {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6 flex items-center gap-3">
+          <button type="button" onClick={() => { setView('list'); setError(''); setEditingId(null); }}
+            className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900 hover:bg-slate-50">
+            ← Volver
+          </button>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
+            <Icon name="map" className="h-6 w-6 text-emerald-600" />
+            {editingId ? t('itineraries.edit') : t('itineraries.addNew')}
+          </h1>
+          {editingId && <span className="text-sm text-slate-400">ID #{editingId}</span>}
+        </div>
+
+        {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>{t('itineraries.titleField')} *</label>
+                  <input value={form.title} required placeholder="Ej. Madrid en 3 días"
+                    onChange={(e) => set('title', e.target.value)} className={fieldClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>{t('itineraries.category')}</label>
+                  <IconSelect value={form.category} onChange={(v) => set('category', v)}
+                    options={categoryOptions} placeholder="— Selecciona categoría —" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                  <label className={labelClass}>{t('itineraries.difficulty')}</label>
+                  <select value={form.difficulty} onChange={(e) => set('difficulty', e.target.value as Difficulty)} className={fieldClass}>
+                    <option value="Fácil">{t('itineraries.easy')}</option>
+                    <option value="Moderado">{t('itineraries.moderate')}</option>
+                    <option value="Difícil">{t('itineraries.hard')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>{t('itineraries.duration', 'Duración (días)')}</label>
+                  <input type="number" min="0" value={form.duration} placeholder="3"
+                    onChange={(e) => set('duration', e.target.value)} className={fieldClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>{t('itineraries.icon', 'Icono')}</label>
+                  <IconSelect value={form.image} onChange={(v) => set('image', v)} options={IMAGE_ICONS} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:max-w-md">
+                <div>
+                  <label className={labelClass}>{t('itineraries.startDate')} <span className="font-normal text-slate-400">(opcional)</span></label>
+                  <input type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} className={fieldClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>{t('itineraries.endDate')} <span className="font-normal text-slate-400">(opcional)</span></label>
+                  <input type="date" value={form.end_date} onChange={(e) => set('end_date', e.target.value)} className={fieldClass} />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>{t('common.description')}</label>
+                <textarea value={form.description} rows={3} placeholder="Describe el itinerario…"
+                  onChange={(e) => set('description', e.target.value)} className={fieldClass} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 border-t border-slate-100 pt-5 sm:grid-cols-3">
+                <StringList label={t('itineraries.destinations')} items={form.destinations}
+                  placeholder="Ej. Madrid" onChange={(v) => set('destinations', v)} />
+                <StringList label={t('itineraries.highlights')} items={form.highlights}
+                  placeholder="Ej. Museo del Prado" onChange={(v) => set('highlights', v)} />
+                <StringList label={t('itineraries.tips', 'Consejos')} items={form.tips}
+                  placeholder="Ej. Lleva calzado cómodo" onChange={(v) => set('tips', v)} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-5 sm:max-w-md">
+                <div>
+                  <label className={labelClass}>Latitud <span className="font-normal text-slate-400">(opcional)</span></label>
+                  <input type="number" step="any" value={form.latitude} placeholder="40.4168"
+                    onChange={(e) => set('latitude', e.target.value)} className={fieldClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Longitud <span className="font-normal text-slate-400">(opcional)</span></label>
+                  <input type="number" step="any" value={form.longitude} placeholder="-3.7038"
+                    onChange={(e) => set('longitude', e.target.value)} className={fieldClass} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex items-center justify-end gap-3 pb-6">
+            <button type="button" onClick={() => setForm(EMPTY_FORM())}
+              className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+              Limpiar
+            </button>
+            <button type="submit" disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50">
+              <Icon name="check" className="h-4 w-4" />
+              {saving ? t('common.saving', 'Guardando…') : editingId ? t('common.save') : t('itineraries.add')}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  // ─────────────────────────── LISTA ───────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 text-white py-20">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-6xl font-bold mb-6">🗺️ {t('itineraries.title')}</h1>
-          <p className="text-xl opacity-90 max-w-3xl mx-auto leading-relaxed">
-            {t('itineraries.subtitle')}
+    <div className="mx-auto max-w-5xl">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
+            <Icon name="map" className="h-6 w-6 text-emerald-600" /> {t('itineraries.title')}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {filtered.length} {filtered.length === 1 ? 'itinerario' : 'itinerarios'}
+            {isFiltered ? ' (filtrados)' : ' en total'}
           </p>
         </div>
+        {isAdmin && (
+          <button type="button" onClick={startCreate}
+            className="inline-flex items-center gap-2 self-start rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 sm:self-auto">
+            <Icon name="plus" className="h-4 w-4" /> {t('itineraries.add')}
+          </button>
+        )}
       </div>
 
-      <div className="container mx-auto px-4 py-16">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">{t('itineraries.totalItineraries')}</p>
-                <p className="text-2xl font-bold text-gray-800">{itineraries.length}</p>
-              </div>
-              <div className="bg-indigo-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-              </div>
-            </div>
-          </div>
+      {success && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{success}</div>}
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">{t('itineraries.categories')}</p>
-                <p className="text-2xl font-bold text-gray-800">{new Set(itineraries.map(i => i.category)).size}</p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">{t('itineraries.difficulties')}</p>
-                <p className="text-2xl font-bold text-gray-800">{new Set(itineraries.map(i => i.difficulty)).size}</p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">{t('itineraries.totalDestinations')}</p>
-                <p className="text-2xl font-bold text-gray-800">{new Set(itineraries.flatMap(i => i.destinations)).size}</p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
+      {/* Filtros */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            placeholder="Buscar por título o destino…"
+            className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
         </div>
+        <select value={filterDifficulty} onChange={(e) => { setFilterDifficulty(e.target.value); setCurrentPage(1); }}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 sm:w-56">
+          <option value="">{t('common.all')} — {t('itineraries.difficulty')}</option>
+          {DIFFICULTIES.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-800">{t('itineraries.list')}</h2>
-          <div className="flex gap-4">
-            <button
-              onClick={handleAddItinerary}
-              className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              {t('itineraries.add')}
-            </button>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              {t('common.exportData')}
-            </button>
-          </div>
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
+          {t('common.loading', 'Cargando…')}
         </div>
-
-        {/* Itineraries Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <Icon name="map" className="h-6 w-6" />
+          </div>
+          <h3 className="text-base font-semibold text-slate-900">
+            {items.length === 0 ? 'Aún no hay itinerarios' : 'Ningún itinerario coincide con el filtro'}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">{t('itineraries.subtitle')}</p>
+          {items.length === 0 && isAdmin && (
+            <button type="button" onClick={startCreate}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+              <Icon name="plus" className="h-4 w-4" /> {t('itineraries.add')}
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.image')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.titleField')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.totalDestinations')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.category')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.difficulty')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.startDate')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('itineraries.endDate')}</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
+                  <th className="px-4 py-3">{t('itineraries.titleField')}</th>
+                  <th className="px-4 py-3">{t('itineraries.totalDestinations')}</th>
+                  <th className="px-4 py-3">{t('itineraries.duration', 'Duración')}</th>
+                  <th className="px-4 py-3">{t('itineraries.category')}</th>
+                  <th className="px-4 py-3">{t('itineraries.difficulty')}</th>
+                  {isAdmin && <th className="px-4 py-3 text-right">{t('common.actions')}</th>}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentItineraries.map((itinerary) => (
-                  <tr key={itinerary.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{itinerary.id}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className="text-2xl">{itinerary.image}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{itinerary.title}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{itinerary.destinations.join(', ')}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        itinerary.category === 'cultural' ? 'bg-blue-100 text-blue-800' :
-                        itinerary.category === 'adventure' ? 'bg-green-100 text-green-800' :
-                        itinerary.category === 'nature' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {itinerary.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        itinerary.difficulty === 'Fácil' ? 'bg-green-100 text-green-800' :
-                        itinerary.difficulty === 'Moderado' ? 'bg-yellow-100 text-yellow-800' :
-                        itinerary.difficulty === 'Difícil' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {itinerary.difficulty}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{itinerary.start_date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{itinerary.end_date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex gap-2">
-                        <Link
-                          to={`/provider/${itinerary.id}`}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </Link>
-                        <button
-                          onClick={() => handleEditItinerary(itinerary)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteItinerary(itinerary.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+              <tbody className="divide-y divide-slate-100">
+                {paginated.map((it) => (
+                  <tr key={it.id} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                          <Icon name={resolveIcon(it.image)} className="h-5 w-5" />
+                        </span>
+                        <p className="min-w-0 font-medium text-slate-800">{it.title}</p>
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <span className="block max-w-[16rem] truncate">
+                        {(it.destinations ?? []).join(', ') || '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {it.duration ? `${it.duration} ${it.duration === 1 ? 'día' : 'días'}` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{categoryLabel(it.category)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${DIFFICULTY_STYLE[it.difficulty] ?? 'bg-slate-100 text-slate-500'}`}>
+                        {it.difficulty}
+                      </span>
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-right">
+                        {deleteId === it.id ? (
+                          <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                            <button type="button" onClick={() => handleDelete(it.id)}
+                              className="rounded-lg bg-red-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-600">
+                              {t('common.delete')}
+                            </button>
+                            <button type="button" onClick={() => setDeleteId(null)}
+                              className="text-xs text-slate-500 hover:text-slate-800">{t('common.cancel')}</button>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                            <button type="button" onClick={() => startEdit(it.id)} title={t('common.edit')}
+                              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600">
+                              <Icon name="pencil" className="h-4 w-4" />
+                            </button>
+                            <button type="button" onClick={() => setDeleteId(it.id)} title={t('common.delete')}
+                              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500">
+                              <Icon name="close" className="h-4 w-4" />
+                            </button>
+                          </span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center space-x-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            {renderPagination().map((page, index) => (
-              <button
-                key={index}
-                onClick={() => typeof page === 'number' && handlePageChange(page)}
-                disabled={page === '...'}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  page === currentPage ? 'bg-indigo-500 text-white border-indigo-500' : 'border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {page}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <button type="button" onClick={() => setCurrentPage((p) => p - 1)} disabled={page === 1}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900 hover:bg-slate-50 disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:bg-transparent">
+                {t('common.previous')}
               </button>
-            ))}
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        {/* Modal for Add/Edit Itinerary */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-800">
-                  {editingItinerary ? t('itineraries.edit') : t('itineraries.addNew')}
-                </h3>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target as HTMLFormElement);
-                const itineraryData: ItineraryFormData = {
-                  title: formData.get('title') as string,
-                  description: formData.get('description') as string,
-                  start_date: formData.get('start_date') as string,
-                  end_date: formData.get('end_date') as string,
-                  destinations: (formData.get('destinations') as string).split(',').map(d => d.trim()),
-                  category: formData.get('category') as string,
-                  difficulty: formData.get('difficulty') as string,
-                  highlights: (formData.get('highlights') as string).split(',').map(h => h.trim()),
-                  image: formData.get('image') as string,
-                };
-                handleSaveItinerary(itineraryData);
-              }}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.titleField')}</label>
-                    <input
-                      type="text"
-                      name="title"
-                      defaultValue={editingItinerary?.title}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.category')}</label>
-                    <select
-                      name="category"
-                      defaultValue={editingItinerary?.category}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="cultural">{t('itineraries.cultural')}</option>
-                      <option value="adventure">{t('itineraries.adventure')}</option>
-                      <option value="nature">{t('itineraries.nature')}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.startDate')}</label>
-                    <input
-                      type="date"
-                      name="start_date"
-                      defaultValue={editingItinerary?.start_date}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.endDate')}</label>
-                    <input
-                      type="date"
-                      name="end_date"
-                      defaultValue={editingItinerary?.end_date}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.difficulty')}</label>
-                    <select
-                      name="difficulty"
-                      defaultValue={editingItinerary?.difficulty}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="Fácil">{t('itineraries.easy')}</option>
-                      <option value="Moderado">{t('itineraries.moderate')}</option>
-                      <option value="Difícil">{t('itineraries.hard')}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.image')}</label>
-                    <input
-                      type="text"
-                      name="image"
-                      defaultValue={editingItinerary?.image}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.destinations')}</label>
-                  <input
-                    type="text"
-                    name="destinations"
-                    defaultValue={editingItinerary?.destinations.join(', ')}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('itineraries.highlights')}</label>
-                  <input
-                    type="text"
-                    name="highlights"
-                    defaultValue={editingItinerary?.highlights.join(', ')}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('common.description')}</label>
-                  <textarea
-                    name="description"
-                    defaultValue={editingItinerary?.description}
-                    required
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    {t('common.cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                  >
-                    {editingItinerary ? t('common.update') : t('common.create')}
-                  </button>
-                </div>
-              </form>
+              <span className="text-sm text-slate-500">{t('common.pageOf', { current: page, total: totalPages })}</span>
+              <button type="button" onClick={() => setCurrentPage((p) => p + 1)} disabled={page === totalPages}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900 hover:bg-slate-50 disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:bg-transparent">
+                {t('common.next')}
+              </button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -29,6 +29,16 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/reviews', labelKey: 'nav.reviews', icon: 'star', permission: 'review:view' },
   { to: '/reviews-by-tours', labelKey: 'nav.reviewsByTours', icon: 'chart-pie', permission: 'review:view' },
   { to: '/participants', labelKey: 'nav.participants', icon: 'users', permission: 'booking:view' },
+
+  // Catálogo global e identidad (superadmin). Buzz es superadmin-only, así que
+  // no se restringen por permiso: el gate de acceso es el rol (ProtectedRoute).
+  { to: '/pois', labelKey: 'nav.pois', icon: 'pin' },
+  { to: '/destinations', labelKey: 'nav.destinations', icon: 'compass' },
+  { to: '/geography', labelKey: 'nav.geography', icon: 'globe' },
+  { to: '/categories', labelKey: 'nav.categories', icon: 'tag' },
+  { to: '/activities', labelKey: 'nav.activities', icon: 'sparkles' },
+  { to: '/users', labelKey: 'nav.users', icon: 'user-circle' },
+  { to: '/roles', labelKey: 'nav.roles', icon: 'shield' },
 ];
 
 /** Items del menú que el usuario puede abrir de verdad. */
