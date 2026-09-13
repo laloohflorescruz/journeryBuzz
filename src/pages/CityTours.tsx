@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Icon, { resolveIcon } from '../components/Icon';
+import ApprovalBadge, { ApprovalNotice } from '../components/ApprovalBadge';
+import type { ApprovalStatus } from '../services/pois';
 import IconSelect from '../components/IconSelect';
 import { ImageUploader, GalleryUploader } from '../components/ImageUploader';
 import RichTextEditor from '../components/RichTextEditor';
@@ -19,6 +21,9 @@ interface TourRow {
   price: string; difficulty: string; image: string;
   is_active: boolean; created_at: string | null;
   creator_contact: { id: number } | null;
+  // Moderación: lo fija la API (pendiente al crearse desde este panel).
+  approval_status?: ApprovalStatus;
+  approval_note?: string;
 }
 
 const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Fácil', moderate: 'Moderada', hard: 'Difícil', extreme: 'Alta' };
@@ -411,7 +416,10 @@ const CityToursApi = () => {
                     <td className="px-4 py-3 text-slate-600">{t.price || '—'}</td>
                     <td className="px-4 py-3 text-slate-600">{DIFFICULTY_LABEL[t.difficulty] || t.difficulty || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${t.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t.is_active ? 'Activo' : 'Inactivo'}</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${t.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{t.is_active ? 'Activo' : 'Inactivo'}</span>
+                        <ApprovalBadge status={t.approval_status} note={t.approval_note} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-slate-500">{fmtDateTime(t.created_at)}</td>
                     <td className="px-4 py-3 text-right">
@@ -450,6 +458,7 @@ const CityToursApi = () => {
         {!editingId && <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">Serás el propietario</span>}
       </div>
 
+      {!editingId && <ApprovalNotice noun="el tour de ciudad" />}
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <form onSubmit={handleSubmit}>

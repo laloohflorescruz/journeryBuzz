@@ -4,6 +4,8 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Icon, { resolveIcon } from '../components/Icon';
 import IconSelect, { type IconOption } from '../components/IconSelect';
+import { dateRangeError } from '../lib/dateRange';
+import { apiErrorMessage } from '../lib/apiError';
 import {
   listItineraries, getItinerary, createItinerary, updateItinerary, deleteItinerary,
   type Itinerary, type ItineraryPayload, type Difficulty,
@@ -177,6 +179,9 @@ function Itineraries() {
     e.preventDefault();
     setError(''); setSuccess('');
     if (!form.title.trim()) { setError('El título es obligatorio.'); return; }
+    // Regla de negocio: la fecha de inicio no puede ser posterior a la de fin.
+    const rangeError = dateRangeError(form.start_date, form.end_date);
+    if (rangeError) { setError(rangeError); return; }
     setSaving(true);
     const payload: ItineraryPayload = {
       title: form.title.trim(),
@@ -206,8 +211,8 @@ function Itineraries() {
       load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      const detail = (err as { response?: { data?: unknown } })?.response?.data;
-      setError(typeof detail === 'string' ? detail : 'No se pudo guardar el itinerario. Revisa los campos.');
+      // Muestra el mensaje real de la API (p. ej. la regla del rango de fechas).
+      setError(apiErrorMessage(err, 'No se pudo guardar el itinerario. Revisa los campos.'));
     } finally {
       setSaving(false);
     }
@@ -295,11 +300,13 @@ function Itineraries() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:max-w-md">
                 <div>
                   <label className={labelClass}>{t('itineraries.startDate')} <span className="font-normal text-slate-400">(opcional)</span></label>
-                  <input type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} className={fieldClass} />
+                  <input type="date" value={form.start_date} max={form.end_date || undefined}
+                    onChange={(e) => set('start_date', e.target.value)} className={fieldClass} />
                 </div>
                 <div>
                   <label className={labelClass}>{t('itineraries.endDate')} <span className="font-normal text-slate-400">(opcional)</span></label>
-                  <input type="date" value={form.end_date} onChange={(e) => set('end_date', e.target.value)} className={fieldClass} />
+                  <input type="date" value={form.end_date} min={form.start_date || undefined}
+                    onChange={(e) => set('end_date', e.target.value)} className={fieldClass} />
                 </div>
               </div>
 

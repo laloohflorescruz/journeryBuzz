@@ -34,11 +34,6 @@ export const NAV_ITEMS: NavItem[] = [
   // no se restringen por permiso: el gate de acceso es el rol (ProtectedRoute).
   { to: '/pois', labelKey: 'nav.pois', icon: 'pin' },
   { to: '/destinations', labelKey: 'nav.destinations', icon: 'compass' },
-  { to: '/geography', labelKey: 'nav.geography', icon: 'globe' },
-  { to: '/categories', labelKey: 'nav.categories', icon: 'tag' },
-  { to: '/activities', labelKey: 'nav.activities', icon: 'sparkles' },
-  { to: '/users', labelKey: 'nav.users', icon: 'user-circle' },
-  { to: '/roles', labelKey: 'nav.roles', icon: 'shield' },
 ];
 
 /** Items del menú que el usuario puede abrir de verdad. */

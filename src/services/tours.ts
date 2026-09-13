@@ -1,4 +1,8 @@
 import api from './api';
+
+/** Estado de moderación que fija la API (el cliente no lo escribe). */
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 import type { CompanyBrief } from './resources';
 
 // --- Tour catalog (Phase 4: buzz providers publish their own tours) ---
@@ -56,6 +60,9 @@ export interface Tour {
   payment_options: number[];
   itinerary: ItineraryStep[];
   is_active: boolean;
+  approval_status?: ApprovalStatus;
+  approval_note?: string;
+  submitted_by_username?: string | null;
   company: CompanyBrief | null;
   categories: { id: number }[];
   activities: { id: number }[];

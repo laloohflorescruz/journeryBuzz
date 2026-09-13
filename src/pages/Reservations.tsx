@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+import Modal, { modalBtnGhost } from '../components/Modal';
+import DateFilterPanel from '../components/DateFilterPanel';
+import {
+  dayOf, matchesDateFilter, EMPTY_DATE_FILTER, type DateFilterValue,
+} from '../lib/dateFilter';
 import { useAuth } from '../context/AuthContext';
 import {
   listBookings, confirmBooking, cancelBooking,
@@ -42,6 +47,7 @@ function Reservations() {
   const [statusFilter, setStatusFilter] = useState<BookingStatus | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<Booking | null>(null);
+  const [dates, setDates] = useState<DateFilterValue>(EMPTY_DATE_FILTER);
 
   useEffect(() => {
     let active = true;
@@ -71,6 +77,13 @@ function Reservations() {
     }
   };
 
+  // Reservas por día de servicio: alimenta los puntos del calendario.
+  const countsByDay = new Map<string, number>();
+  bookings.forEach((b) => {
+    const day = dayOf(b.scheduled_date);
+    if (day) countsByDay.set(day, (countsByDay.get(day) ?? 0) + 1);
+  });
+
   const filtered = bookings.filter((b) => {
     const matchStatus = statusFilter === 'all' || b.status === statusFilter;
     const q = search.trim().toLowerCase();
@@ -79,13 +92,18 @@ function Reservations() {
       b.contact_name.toLowerCase().includes(q) ||
       b.contact_email.toLowerCase().includes(q) ||
       (b.tour?.name ?? '').toLowerCase().includes(q);
-    return matchStatus && matchSearch;
+    return matchStatus && matchSearch && matchesDateFilter(b.scheduled_date, dates);
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const page = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const isFiltered = statusFilter !== 'all' || search.trim() !== '';
+  const isFiltered = statusFilter !== 'all' || search.trim() !== ''
+    || !!dates.day || !!dates.from || !!dates.to;
+
+  const clearFilters = () => {
+    setStatusFilter('all'); setSearch(''); setDates(EMPTY_DATE_FILTER); setCurrentPage(1);
+  };
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -100,6 +118,16 @@ function Reservations() {
         </p>
       </div>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_1fr]">
+        <DateFilterPanel
+          value={dates}
+          onChange={(v) => { setDates(v); setCurrentPage(1); }}
+          countsByDay={countsByDay}
+          noun={['reserva', 'reservas']}
+          onClear={isFiltered ? clearFilters : undefined}
+        />
+
+        <div>
       {/* Filtros */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
@@ -252,20 +280,24 @@ function Reservations() {
         </>
       )}
 
+        </div>
+      </div>
+
       {/* Detalle */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setSelected(null)}>
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <h3 className="text-base font-semibold text-slate-900">{t('reservations.details')}</h3>
-              <button
-                type="button" onClick={() => setSelected(null)}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-              >
-                <Icon name="close" className="h-4 w-4" />
-              </button>
-            </div>
-            <dl className="space-y-3 px-5 py-4 text-sm">
+      <Modal
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={t('reservations.details')}
+        size="md"
+        footer={(
+          <button type="button" onClick={() => setSelected(null)} className={modalBtnGhost}>
+            {t('common.close')}
+          </button>
+        )}
+      >
+        {selected && (
+          <>
+            <dl className="space-y-3 text-sm">
               {[
                 [t('reservations.customer'), selected.customer_username || selected.contact_name || '—'],
                 [t('reservations.tourItinerary'), selected.tour?.name || '—'],
@@ -295,17 +327,9 @@ function Reservations() {
                 </div>
               )}
             </dl>
-            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
-              <button
-                type="button" onClick={() => setSelected(null)}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

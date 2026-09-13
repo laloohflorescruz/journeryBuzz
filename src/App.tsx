@@ -22,11 +22,6 @@ import ReviewsByTours from './pages/ReviewsByTours';
 import Participants from './pages/Participants';
 import POIs from './pages/POIs';
 import Destinations from './pages/Destinations';
-import Geography from './pages/Geography';
-import Categories from './pages/Categories';
-import Activities from './pages/Activities';
-import Users from './pages/Users';
-import Roles from './pages/Roles';
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,8 +45,9 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Contenido */}
-      <div className="lg:pl-64">
+      {/* Contenido: columna a pantalla completa para que el pie quede siempre
+          abajo aunque la página tenga poco contenido. */}
+      <div className="flex min-h-screen flex-col lg:pl-64">
         {/* Topbar */}
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur md:px-6">
           <button
@@ -71,7 +67,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </header>
 
-        <main className="p-4 md:p-6">
+        <main className="flex-1 p-4 md:p-6">
           {children}
         </main>
         <Footer />
@@ -194,11 +190,14 @@ function App() {
               ProtectedRoute: buzz es superadmin-only. */}
           <Route path="/pois" element={<ProtectedRoute><AppLayout><POIs /></AppLayout></ProtectedRoute>} />
           <Route path="/destinations" element={<ProtectedRoute><AppLayout><Destinations /></AppLayout></ProtectedRoute>} />
-          <Route path="/geography" element={<ProtectedRoute><AppLayout><Geography /></AppLayout></ProtectedRoute>} />
-          <Route path="/categories" element={<ProtectedRoute><AppLayout><Categories /></AppLayout></ProtectedRoute>} />
-          <Route path="/activities" element={<ProtectedRoute><AppLayout><Activities /></AppLayout></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><AppLayout><Users /></AppLayout></ProtectedRoute>} />
-          <Route path="/roles" element={<ProtectedRoute><AppLayout><Roles /></AppLayout></ProtectedRoute>} />
+          {/* Catálogo global e identidad (geografía, categorías, actividades,
+              usuarios, roles) se gestionan en el panel admin: aquí se retiran y
+              las URLs antiguas vuelven al inicio. */}
+          <Route path="/geography" element={<Navigate to="/" replace />} />
+          <Route path="/categories" element={<Navigate to="/" replace />} />
+          <Route path="/activities" element={<Navigate to="/" replace />} />
+          <Route path="/users" element={<Navigate to="/" replace />} />
+          <Route path="/roles" element={<Navigate to="/" replace />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

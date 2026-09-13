@@ -74,6 +74,11 @@ export interface Review {
 // Provider scoping is applied server-side based on the authenticated user's
 // company, so plain GETs already return only this provider's data.
 
+/**
+ * Reservas del panel. El aislamiento lo aplica la API sin necesidad de
+ * parámetros: un proveedor solo recibe las reservas de su empresa
+ * (BookingService.list_for), y los administradores las ven todas.
+ */
 export async function listBookings(): Promise<Booking[]> {
   const { data } = await api.get<Booking[]>('/bookings/');
   return data;
@@ -110,8 +115,13 @@ export async function refundPayment(id: number, amount?: string): Promise<Refund
   return data;
 }
 
+/**
+ * Reseñas del panel: `?mine=true` limita la respuesta a la empresa del usuario.
+ * Sin ese parámetro la API devuelve además todas las aprobadas de la plataforma
+ * (lo que necesita el portal público, no este panel).
+ */
 export async function listReviews(): Promise<Review[]> {
-  const { data } = await api.get<Review[]>('/reviews/');
+  const { data } = await api.get<Review[]>('/reviews/', { params: { mine: 'true' } });
   return data;
 }
 

@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../services/api';
 import Icon, { resolveIcon } from '../components/Icon';
+import ApprovalBadge, { ApprovalNotice } from '../components/ApprovalBadge';
 import { ImageUploader, GalleryUploader } from '../components/ImageUploader';
+import RichTextEditor from '../components/RichTextEditor';
 import {
   listPois, getPoi, createPoi, updatePoi, deletePoi,
   type POI, type POIPayload,
@@ -12,6 +14,7 @@ import {
 // distinciones. Diseño sobrio consistente con buzz.
 
 interface Place { id: number; name: string }
+interface NamedCatalog { id: number; name_en: string; name_es: string; is_active?: boolean }
 interface CategoryDb { id: number; name_en: string; name_es: string; icon: string; is_active: boolean }
 
 const PAGE_SIZE = 10;
@@ -22,6 +25,43 @@ const toSlug = (s: string) =>
 const fieldClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
 const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
 
+const toggleId = (list: number[], id: number) =>
+  list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+
+// Selector múltiple en forma de etiquetas, igual que en el perfil de usuario.
+function ChipPicker({ label, options, selected, onToggle }: {
+  label: string;
+  options: { id: number; name_es: string; name_en: string; is_active?: boolean }[];
+  selected: number[];
+  onToggle: (id: number) => void;
+}) {
+  const visible = options.filter((o) => o.is_active !== false);
+  return (
+    <div>
+      <label className={labelClass}>
+        {label} {selected.length > 0 && <span className="font-normal text-slate-400">· {selected.length}</span>}
+      </label>
+      {visible.length === 0 ? (
+        <p className="text-sm text-slate-400">Sin opciones disponibles.</p>
+      ) : (
+        <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+          {visible.map((o) => {
+            const on = selected.includes(o.id);
+            return (
+              <button key={o.id} type="button" onClick={() => onToggle(o.id)}
+                className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
+                  on ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                }`}>
+                {o.name_es || o.name_en}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const EMPTY_FORM = () => ({
   name: '', slug: '', slugTouched: false, category_id: '' as number | '',
   country: '', city_id: '' as number | '',
@@ -29,6 +69,15 @@ const EMPTY_FORM = () => ({
   image: '', gallery: [] as string[],
   latitude: '', longitude: '',
   is_national_park: false, is_unesco: false, is_active: true,
+  // Campos que antes no se podían capturar desde este panel.
+  featured_info: '',
+  activity_ids: [] as number[],
+  travel_style_ids: [] as number[],
+  operator: '',
+  admission_free: false,
+  admission_currency: 'DOP',
+  admission_adult: '',
+  tips: [] as string[],
 });
 type FormState = ReturnType<typeof EMPTY_FORM>;
 
@@ -52,6 +101,8 @@ function POIs() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM());
 
+  const [activitiesDb, setActivitiesDb] = useState<NamedCatalog[]>([]);
+  const [stylesDb, setStylesDb] = useState<NamedCatalog[]>([]);
   const [countriesDb, setCountriesDb] = useState<Place[]>([]);
   const [citiesDb, setCitiesDb] = useState<Place[]>([]);
 
@@ -68,6 +119,9 @@ function POIs() {
     load();
     api.get('/categories/').then(({ data }) => setCategories(data)).catch(() => setCategories([]));
     api.get('/countries/').then(({ data }) => setCountriesDb(data)).catch(() => setCountriesDb([]));
+    // Actividades y estilos de viaje salen de la BD (regla del proyecto).
+    api.get('/activities/').then(({ data }) => setActivitiesDb(data)).catch(() => setActivitiesDb([]));
+    api.get('/travel-styles/').then(({ data }) => setStylesDb(data)).catch(() => setStylesDb([]));
     // eslint-disable-next-line
   }, []);
 
@@ -94,6 +148,14 @@ function POIs() {
         image: p.image ?? '', gallery: p.photos ?? [],
         latitude: p.latitude ? String(p.latitude) : '', longitude: p.longitude ? String(p.longitude) : '',
         is_national_park: p.is_national_park, is_unesco: p.is_unesco, is_active: p.is_active,
+        featured_info: p.featured_info ?? '',
+        activity_ids: (p.activities ?? []).map((a) => a.id),
+        travel_style_ids: (p.travel_styles ?? []).map((t) => t.id),
+        operator: p.operator ?? '',
+        admission_free: !!p.admission?.free,
+        admission_currency: p.admission?.tiers?.[0]?.currency || 'DOP',
+        admission_adult: p.admission?.tiers?.[0]?.adult || '',
+        tips: p.tips ?? [],
       });
       const country = countriesDb.find((c) => c.name === countryName);
       if (country) { try { const { data } = await api.get(`/cities/?country_id=${country.id}`); setCitiesDb(data); } catch { setCitiesDb([]); } }
@@ -124,6 +186,18 @@ function POIs() {
       is_active: form.is_active,
       country_id: country ? country.id : null,
       city_id: form.city_id === '' ? null : Number(form.city_id),
+      featured_info: form.featured_info,
+      activity_ids: form.activity_ids,
+      travel_style_ids: form.travel_style_ids,
+      operator: form.operator.trim(),
+      tips: form.tips.map((t) => t.trim()).filter(Boolean),
+      // La entrada se guarda con la misma forma que espera la API:
+      // {free, tiers:[{currency, adult}]}. Sin importe, solo se marca si es gratis.
+      admission: form.admission_free
+        ? { free: true, tiers: [] }
+        : form.admission_adult.trim()
+          ? { free: false, tiers: [{ currency: form.admission_currency, adult: form.admission_adult.trim() }] }
+          : { free: false, tiers: [] },
     };
     try {
       if (editingId) { await updatePoi(editingId, payload); setSuccess('POI actualizado.'); }
@@ -141,6 +215,10 @@ function POIs() {
     try { await deletePoi(id); setDeleteId(null); setSuccess('POI eliminado.'); load(); }
     catch { setDeleteId(null); setError('No se pudo eliminar el POI.'); }
   };
+
+  // Una propuesta solo se puede corregir mientras el administrador no la haya
+  // revisado; lo aprobado se gestiona desde el panel admin.
+  const canEdit = (p: POI) => p.approval_status === 'pending' || p.approval_status === 'rejected';
 
   const filtered = items.filter((p) => {
     const q = search.trim().toLowerCase();
@@ -166,11 +244,12 @@ function POIs() {
           <button type="button" onClick={() => { setView('list'); setError(''); setEditingId(null); }}
             className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900 hover:bg-slate-50">← Volver</button>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
-            <Icon name="pin" className="h-6 w-6 text-emerald-600" /> {editingId ? 'Editar POI' : 'Nuevo POI'}
+            <Icon name="pin" className="h-6 w-6 text-emerald-600" /> {editingId ? 'Corregir propuesta' : 'Proponer punto de interés'}
           </h1>
           {editingId && <span className="text-sm text-slate-400">ID #{editingId}</span>}
         </div>
 
+        {!editingId && <ApprovalNotice noun="el punto de interés" />}
         {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -215,6 +294,75 @@ function POIs() {
             <div>
               <label className={labelClass}>Descripción</label>
               <textarea value={form.description} rows={4} placeholder="Describe el punto de interés…" onChange={(e) => set('description', e.target.value)} className={fieldClass} />
+            </div>
+
+            <div>
+              <label className={labelClass}>Datos destacados <span className="font-normal text-slate-400">(lo que no debe perderse el visitante)</span></label>
+              <RichTextEditor value={form.featured_info} onChange={(v) => set('featured_info', v)} placeholder="Horario recomendado, qué llevar, detalles que marcan la diferencia…" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Operador <span className="font-normal text-slate-400">(quién gestiona el lugar)</span></label>
+                <input value={form.operator} placeholder="Ej. Ministerio de Medio Ambiente" onChange={(e) => set('operator', e.target.value)} className={fieldClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Entrada</label>
+                <div className="flex items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm text-slate-600">
+                    <input type="checkbox" checked={form.admission_free}
+                      onChange={(e) => set('admission_free', e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+                    Gratis
+                  </label>
+                  <select value={form.admission_currency} disabled={form.admission_free}
+                    onChange={(e) => set('admission_currency', e.target.value)}
+                    className={`${fieldClass} w-24 disabled:bg-slate-50 disabled:text-slate-400`}>
+                    <option value="DOP">DOP</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                  <input type="number" min="0" step="0.01" value={form.admission_adult} disabled={form.admission_free}
+                    placeholder="Importe adulto"
+                    onChange={(e) => set('admission_adult', e.target.value)}
+                    className={`${fieldClass} disabled:bg-slate-50 disabled:text-slate-400`} />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <ChipPicker
+                label="Actividades"
+                options={activitiesDb}
+                selected={form.activity_ids}
+                onToggle={(id) => set('activity_ids', toggleId(form.activity_ids, id))}
+              />
+              <ChipPicker
+                label="Estilos de viaje"
+                options={stylesDb}
+                selected={form.travel_style_ids}
+                onToggle={(id) => set('travel_style_ids', toggleId(form.travel_style_ids, id))}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Consejos para el visitante</label>
+              <div className="space-y-2">
+                {form.tips.map((tip, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input value={tip} placeholder="Ej. Lleva calzado cerrado"
+                      onChange={(e) => set('tips', form.tips.map((x, idx) => (idx === i ? e.target.value : x)))}
+                      className={fieldClass} />
+                    <button type="button" onClick={() => set('tips', form.tips.filter((_, idx) => idx !== i))}
+                      className="rounded-lg px-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500">
+                      <Icon name="close" className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => set('tips', [...form.tips, ''])}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900">
+                  <Icon name="plus" className="h-4 w-4" /> Añadir consejo
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:max-w-md">
@@ -272,13 +420,13 @@ function POIs() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
-            <Icon name="pin" className="h-6 w-6 text-emerald-600" /> POIs
+            <Icon name="pin" className="h-6 w-6 text-emerald-600" /> Mis propuestas de POI
           </h1>
           <p className="mt-1 text-sm text-slate-500">{filtered.length} {filtered.length === 1 ? 'punto de interés' : 'puntos de interés'}{isFiltered ? ' (filtrados)' : ' en total'}</p>
         </div>
         <button type="button" onClick={startCreate}
           className="inline-flex items-center gap-2 self-start rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 sm:self-auto">
-          <Icon name="plus" className="h-4 w-4" /> Nuevo POI
+          <Icon name="plus" className="h-4 w-4" /> Proponer POI
         </button>
       </div>
 
@@ -337,7 +485,10 @@ function POIs() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{p.city?.name || p.country?.name || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${p.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{p.is_active ? t('common.active') : t('common.inactive')}</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${p.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{p.is_active ? t('common.active') : t('common.inactive')}</span>
+                        <ApprovalBadge status={p.approval_status} note={p.approval_note} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {deleteId === p.id ? (
@@ -346,10 +497,14 @@ function POIs() {
                           <button type="button" onClick={() => setDeleteId(null)} className="text-xs text-slate-500 hover:text-slate-800">{t('common.cancel')}</button>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                          <button type="button" onClick={() => startEdit(p.id)} title={t('common.edit')} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"><Icon name="pencil" className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => setDeleteId(p.id)} title={t('common.delete')} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"><Icon name="close" className="h-4 w-4" /></button>
-                        </span>
+                        canEdit(p) ? (
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                            <button type="button" onClick={() => startEdit(p.id)} title="Corregir propuesta" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"><Icon name="pencil" className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => setDeleteId(p.id)} title="Retirar propuesta" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"><Icon name="close" className="h-4 w-4" /></button>
+                          </span>
+                        ) : (
+                          <span className="whitespace-nowrap text-xs text-slate-400">Aprobado · lo gestiona el administrador</span>
+                        )
                       )}
                     </td>
                   </tr>

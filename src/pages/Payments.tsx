@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
+import Modal, { modalBtnGhost, modalBtnDanger } from '../components/Modal';
+import DateFilterPanel from '../components/DateFilterPanel';
+import {
+  dayOf, matchesDateFilter, EMPTY_DATE_FILTER, type DateFilterValue,
+} from '../lib/dateFilter';
 import { useAuth } from '../context/AuthContext';
 import { listPayments, refundPayment, type Payment, type PaymentStatus } from '../services/resources';
 
@@ -34,6 +39,7 @@ function Payments() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [dates, setDates] = useState<DateFilterValue>(EMPTY_DATE_FILTER);
   const [selected, setSelected] = useState<Payment | null>(null);
   // Reembolso: pago a confirmar, monto (vacío = total) y estado de la operación.
   const [refunding, setRefunding] = useState<Payment | null>(null);
@@ -88,6 +94,13 @@ function Payments() {
     }
   };
 
+  // Pagos por día de cobro: alimenta los puntos del calendario.
+  const countsByDay = new Map<string, number>();
+  payments.forEach((p) => {
+    const day = dayOf(p.created_at);
+    if (day) countsByDay.set(day, (countsByDay.get(day) ?? 0) + 1);
+  });
+
   const filtered = payments.filter((p) => {
     const matchStatus = statusFilter === 'all' || p.status === statusFilter;
     const q = search.trim().toLowerCase();
@@ -95,13 +108,18 @@ function Payments() {
       String(p.booking).includes(q) ||
       p.provider.toLowerCase().includes(q) ||
       referenceOf(p).toLowerCase().includes(q);
-    return matchStatus && matchSearch;
+    return matchStatus && matchSearch && matchesDateFilter(p.created_at, dates);
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const page = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const isFiltered = statusFilter !== 'all' || search.trim() !== '';
+  const isFiltered = statusFilter !== 'all' || search.trim() !== ''
+    || !!dates.day || !!dates.from || !!dates.to;
+
+  const clearFilters = () => {
+    setStatusFilter('all'); setSearch(''); setDates(EMPTY_DATE_FILTER); setCurrentPage(1);
+  };
 
   // Total cobrado (solo pagos en estado 'paid'), agrupado por moneda.
   const totalsByCurrency = filtered
@@ -112,7 +130,7 @@ function Payments() {
     }, {});
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       {/* Encabezado */}
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
@@ -127,6 +145,16 @@ function Payments() {
         </p>
       </div>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_1fr]">
+        <DateFilterPanel
+          value={dates}
+          onChange={(v) => { setDates(v); setCurrentPage(1); }}
+          countsByDay={countsByDay}
+          noun={['pago', 'pagos']}
+          onClear={isFiltered ? clearFilters : undefined}
+        />
+
+        <div>
       {/* Filtros */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
@@ -250,71 +278,68 @@ function Payments() {
         </>
       )}
 
-      {/* Confirmación de reembolso — acción irreversible que mueve dinero real. */}
-      {refunding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h3 className="text-base font-semibold text-slate-900">Reembolsar pago</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Reserva #{refunding.booking} · {money(refunding.amount, refunding.currency)}
-              </p>
-            </div>
-
-            <div className="px-5 py-4">
-              <label className="mb-1 block text-xs font-medium text-slate-600">
-                Monto a reembolsar <span className="font-normal text-slate-400">(vacío = total)</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500">{refunding.currency}</span>
-                <input
-                  type="number" min="0" step="0.01" max={refunding.amount}
-                  value={refundAmount}
-                  onChange={(e) => setRefundAmount(e.target.value)}
-                  placeholder={refunding.amount}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
-              <p className="mt-2 text-xs text-slate-400">
-                Puedes reembolsar un importe parcial. Esta acción no se puede deshacer.
-              </p>
-              {refundError && (
-                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{refundError}</div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
-              <button
-                type="button" disabled={refundBusy} onClick={() => setRefunding(null)}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button" disabled={refundBusy} onClick={doRefund}
-                className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
-              >
-                {refundBusy ? 'Reembolsando…' : 'Confirmar reembolso'}
-              </button>
-            </div>
-          </div>
         </div>
-      )}
+      </div>
+
+      {/* Confirmación de reembolso — acción irreversible que mueve dinero real. */}
+      <Modal
+        open={!!refunding}
+        onClose={() => setRefunding(null)}
+        title="Reembolsar pago"
+        subtitle={refunding ? `Reserva #${refunding.booking} · ${money(refunding.amount, refunding.currency)}` : undefined}
+        size="sm"
+        dismissable={!refundBusy}
+        footer={(
+          <>
+            <button type="button" disabled={refundBusy} onClick={() => setRefunding(null)} className={modalBtnGhost}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" disabled={refundBusy} onClick={doRefund} className={modalBtnDanger}>
+              {refundBusy ? 'Reembolsando…' : 'Confirmar reembolso'}
+            </button>
+          </>
+        )}
+      >
+        {refunding && (
+          <>
+            <label className="mb-1 block text-xs font-medium text-slate-600">
+              Monto a reembolsar <span className="font-normal text-slate-400">(vacío = total)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">{refunding.currency}</span>
+              <input
+                type="number" min="0" step="0.01" max={refunding.amount}
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                placeholder={refunding.amount}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Puedes reembolsar un importe parcial. Esta acción no se puede deshacer.
+            </p>
+            {refundError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{refundError}</div>
+            )}
+          </>
+        )}
+      </Modal>
 
       {/* Detalle */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={() => setSelected(null)}>
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <h3 className="text-base font-semibold text-slate-900">{t('payments.details')}</h3>
-              <button
-                type="button" onClick={() => setSelected(null)}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-              >
-                <Icon name="close" className="h-4 w-4" />
-              </button>
-            </div>
-            <dl className="space-y-3 px-5 py-4 text-sm">
+      <Modal
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={t('payments.details')}
+        size="md"
+        footer={(
+          <button type="button" onClick={() => setSelected(null)} className={modalBtnGhost}>
+            {t('common.close')}
+          </button>
+        )}
+      >
+        {selected && (
+          <>
+            <dl className="space-y-3 text-sm">
               {[
                 [t('payments.booking'), `#${selected.booking}`],
                 [t('payments.amount'), money(selected.amount, selected.currency)],
@@ -336,17 +361,9 @@ function Payments() {
                 </dd>
               </div>
             </dl>
-            <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3">
-              <button
-                type="button" onClick={() => setSelected(null)}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

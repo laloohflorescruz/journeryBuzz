@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
+import Modal, { modalBtnGhost } from '../components/Modal';
 import { listReviews, moderateReview, type Review, type ReviewStatus } from '../services/resources';
+import DateFilterPanel from '../components/DateFilterPanel';
+import {
+  dayOf, matchesDateFilter, EMPTY_DATE_FILTER, type DateFilterValue,
+} from '../lib/dateFilter';
 
 const PAGE_SIZE = 8;
 
@@ -45,6 +50,8 @@ function Reviews() {
   const [statusFilter, setStatusFilter] = useState<ReviewStatus | 'all'>('all');
   const [selectedTour, setSelectedTour] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
+  const [dates, setDates] = useState<DateFilterValue>(EMPTY_DATE_FILTER);
+  const [detail, setDetail] = useState<Review | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -76,6 +83,13 @@ function Reviews() {
 
   const tourNames = ['All', ...Array.from(new Set(reviews.map(tourOf)))];
 
+  // Reseñas por día: alimenta los puntos del calendario.
+  const countsByDay = new Map<string, number>();
+  reviews.forEach((r) => {
+    const day = dayOf(r.created_at);
+    if (day) countsByDay.set(day, (countsByDay.get(day) ?? 0) + 1);
+  });
+
   const filtered = reviews.filter((r) => {
     const matchStatus = statusFilter === 'all' || r.status === statusFilter;
     const matchTour = selectedTour === 'All' || tourOf(r) === selectedTour;
@@ -84,17 +98,34 @@ function Reviews() {
       (r.author_username ?? '').toLowerCase().includes(q) ||
       r.title.toLowerCase().includes(q) ||
       r.comment.toLowerCase().includes(q);
-    return matchStatus && matchTour && matchSearch;
+    return matchStatus && matchTour && matchSearch
+      && matchesDateFilter(r.created_at, dates);
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const page = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const isFiltered = statusFilter !== 'all' || selectedTour !== 'All' || search.trim() !== '';
+  const isFiltered = statusFilter !== 'all' || selectedTour !== 'All' || search.trim() !== ''
+    || !!dates.day || !!dates.from || !!dates.to;
+
+  const clearFilters = () => {
+    setStatusFilter('all'); setSelectedTour('All'); setSearch('');
+    setDates(EMPTY_DATE_FILTER); setCurrentPage(1);
+  };
   const pendingCount = reviews.filter((r) => r.status === 'pending').length;
 
+  const calendar = (
+    <DateFilterPanel
+      value={dates}
+      onChange={(v) => { setDates(v); setCurrentPage(1); }}
+      countsByDay={countsByDay}
+      noun={['reseña', 'reseñas']}
+      onClear={isFiltered ? clearFilters : undefined}
+    />
+  );
+
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       {/* Encabezado */}
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
@@ -117,6 +148,10 @@ function Reviews() {
         </button>
       )}
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_1fr]">
+        {calendar}
+
+        <div>
       {/* Filtros */}
       <div className="mb-6 flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -206,10 +241,16 @@ function Reviews() {
                   {r.title && <p className="mt-3 font-medium text-slate-800">{r.title}</p>}
                   {r.comment && <p className="mt-1 text-sm leading-relaxed text-slate-600">{r.comment}</p>}
 
-                  {/* Moderación: acción que la API ya exponía y la UI no usaba. */}
-                  {canModerate && (
-                  <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
-                    {r.status !== 'approved' && (
+                  {/* Detalle y moderación (esta última la API ya la exponía). */}
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setDetail(r)}
+                      className="mr-auto rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-slate-900 hover:bg-slate-50"
+                    >
+                      Ver detalle
+                    </button>
+                    {canModerate && r.status !== 'approved' && (
                       <button
                         type="button" disabled={busy}
                         onClick={() => moderate(r.id, 'approved')}
@@ -218,7 +259,7 @@ function Reviews() {
                         Aprobar
                       </button>
                     )}
-                    {r.status !== 'rejected' && (
+                    {canModerate && r.status !== 'rejected' && (
                       <button
                         type="button" disabled={busy}
                         onClick={() => moderate(r.id, 'rejected')}
@@ -228,7 +269,6 @@ function Reviews() {
                       </button>
                     )}
                   </div>
-                  )}
                 </article>
               );
             })}
@@ -253,6 +293,70 @@ function Reviews() {
           )}
         </>
       )}
+        </div>
+      </div>
+
+      {/* Detalle de la reseña */}
+      <Modal
+        open={detail !== null}
+        onClose={() => setDetail(null)}
+        title={detail ? (detail.author_username || 'Reseña') : ''}
+        subtitle={detail ? `${tourOf(detail)} · ${fmtDate(detail.created_at)}` : undefined}
+        size="md"
+        footer={<button type="button" onClick={() => setDetail(null)} className={modalBtnGhost}>Cerrar</button>}
+      >
+        {detail && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Servicio reseñado</p>
+              <p className="mt-1 font-medium text-slate-900">{tourOf(detail)}</p>
+              {detail.company?.name && <p className="text-sm text-slate-500">Proveedor: {detail.company.name}</p>}
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <Stars rating={detail.rating} />
+              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[detail.status]}`}>
+                {statusLabel(detail.status)}
+              </span>
+            </div>
+
+            {detail.title && <p className="font-medium text-slate-900">{detail.title}</p>}
+            {detail.comment && <p className="text-sm leading-relaxed text-slate-600">{detail.comment}</p>}
+
+            <dl className="space-y-3 border-t border-slate-100 pt-3 text-sm">
+              {[
+                ['Autor', detail.author_username || '—'],
+                ['Publicada', fmtDate(detail.created_at)],
+                ['Moderada', detail.moderated_at ? fmtDate(detail.moderated_at) : 'Sin moderar'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4">
+                  <dt className="text-slate-500">{label}</dt>
+                  <dd className="text-right font-medium text-slate-800">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {canModerate && (
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                {detail.status !== 'approved' && (
+                  <button type="button" disabled={actionId === detail.id}
+                    onClick={() => { void moderate(detail.id, 'approved'); setDetail(null); }}
+                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50">
+                    Aprobar
+                  </button>
+                )}
+                {detail.status !== 'rejected' && (
+                  <button type="button" disabled={actionId === detail.id}
+                    onClick={() => { void moderate(detail.id, 'rejected'); setDetail(null); }}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50">
+                    Rechazar
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

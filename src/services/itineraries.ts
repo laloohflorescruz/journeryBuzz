@@ -28,8 +28,13 @@ export interface Itinerary {
 
 export type ItineraryPayload = Omit<Itinerary, 'id'>;
 
+/**
+ * Listado del panel del proveedor: `?mine=true` hace que la API devuelva solo
+ * los itinerarios de la empresa del usuario (los administradores siguen
+ * viéndolo todo). El aislamiento se decide en el servidor, no aquí.
+ */
 export async function listItineraries(): Promise<Itinerary[]> {
-  const { data } = await api.get<Itinerary[]>('/itineraries/');
+  const { data } = await api.get<Itinerary[]>('/itineraries/', { params: { mine: 'true' } });
   return data;
 }
 
