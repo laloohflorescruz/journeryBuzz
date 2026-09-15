@@ -264,7 +264,9 @@ const CityToursApi = () => {
   useEffect(() => {
     loadTours();
     api.get('/categories/?scope=general').then(({ data }) => setCategories(data)).catch(() => setCategories([]));
-    api.get('/activities/').then(({ data }) => setActivities(data)).catch(() => setActivities([]));
+    // Solo los tipos genéricos: las actividades comerciales (kind='venue') no son etiquetas.
+    api.get('/activities/', { params: { kind: 'type', brief: '1' } })
+      .then(({ data }) => setActivities(data)).catch(() => setActivities([]));
     api.get('/countries/').then(({ data }) => setCountriesDb(data)).catch(() => setCountriesDb([]));
   }, []);
 

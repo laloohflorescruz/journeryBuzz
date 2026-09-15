@@ -120,7 +120,9 @@ function POIs() {
     api.get('/categories/').then(({ data }) => setCategories(data)).catch(() => setCategories([]));
     api.get('/countries/').then(({ data }) => setCountriesDb(data)).catch(() => setCountriesDb([]));
     // Actividades y estilos de viaje salen de la BD (regla del proyecto).
-    api.get('/activities/').then(({ data }) => setActivitiesDb(data)).catch(() => setActivitiesDb([]));
+    // Solo los tipos genéricos: las actividades comerciales (kind='venue') no son etiquetas.
+    api.get('/activities/', { params: { kind: 'type', brief: '1' } })
+      .then(({ data }) => setActivitiesDb(data)).catch(() => setActivitiesDb([]));
     api.get('/travel-styles/').then(({ data }) => setStylesDb(data)).catch(() => setStylesDb([]));
     // eslint-disable-next-line
   }, []);
