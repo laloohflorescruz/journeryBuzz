@@ -10,13 +10,9 @@ import {
 import Icon from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import {
-  listBookings, listPayments, listReviews,
+  getDashboardSummary, listBookings, listPayments, listReviews,
   type Booking, type Payment, type Review, type BookingStatus,
 } from '../services/resources';
-import { listMyTours, listMyCityTours } from '../services/tours';
-import { listItineraries } from '../services/itineraries';
-import { listAccommodations } from '../services/accommodations';
-import { listVehicles } from '../services/vehicles';
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement,
@@ -221,28 +217,44 @@ const Dashboard = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [inventory, setInventory] = useState({ tours: 0, itineraries: 0, accommodations: 0, vehicles: 0 });
 
+  // El servidor de producción duerme cuando no se usa: el primer arranque
+  // tarda. Pasados unos segundos se avisa en vez de dejar el esqueleto quieto.
+  const [waking, setWaking] = useState(false);
+
   const fetchAll = async (initial = false) => {
     if (initial) setLoading(true); else setRefreshing(true);
-    const [b, p, r, mt, ct, it, ac, ve] = await Promise.allSettled([
-      listBookings(), listPayments(), listReviews(),
-      listMyTours(), listMyCityTours(), listItineraries(),
-      listAccommodations({ mine: true }), listVehicles({ mine: true }),
-    ]);
+    setWaking(false);
+    const aviso = window.setTimeout(() => setWaking(true), 4000);
+
+    // Los contadores llegan en una sola consulta agregada (~200 bytes) en vez
+    // de cinco listados completos. Se pintan en cuanto llegan, sin esperar a
+    // las series de las gráficas.
+    const resumen = getDashboardSummary()
+      .then((d) => {
+        setInventory({
+          tours: d.counts.tours + d.counts.city_tours,
+          itineraries: d.counts.itineraries,
+          accommodations: d.counts.accommodations,
+          vehicles: d.counts.vehicles,
+        });
+        setLoading(false);
+      })
+      .catch(() => { /* si falla, el panel sigue con lo que traigan las listas */ });
+
+    const [b, p, r] = await Promise.allSettled([listBookings(), listPayments(), listReviews()]);
+    await resumen;
+    window.clearTimeout(aviso);
+    setWaking(false);
+
     const val = <T,>(res: PromiseSettledResult<T[]>): T[] => (res.status === 'fulfilled' ? res.value : []);
     setBookings(val(b)); setPayments(val(p)); setReviews(val(r));
-    setInventory({
-      tours: val(mt).length + val(ct).length,
-      itineraries: val(it).length,
-      accommodations: val(ac).length,
-      vehicles: val(ve).length,
-    });
     setSoftError(b.status === 'rejected' && p.status === 'rejected'
       ? 'No se pudieron cargar algunos datos. Reintenta en unos segundos.' : '');
     setUpdatedAt(new Date());
     setLoading(false); setRefreshing(false);
   };
 
-  useEffect(() => { fetchAll(true); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { fetchAll(true);   }, []);
 
   const cfg = PERIODS.find((p) => p.key === period)!;
 
@@ -371,6 +383,12 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="space-y-6">
+        {waking && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            El servidor estaba en reposo y está arrancando. La primera carga del día
+            tarda algo más; las siguientes son inmediatas.
+          </div>
+        )}
         <div className="h-8 w-64 animate-pulse rounded-lg bg-slate-200" />
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (

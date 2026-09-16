@@ -74,6 +74,29 @@ export interface Review {
 // Provider scoping is applied server-side based on the authenticated user's
 // company, so plain GETs already return only this provider's data.
 
+export interface DashboardSummary {
+  counts: {
+    tours: number; city_tours: number; itineraries: number;
+    accommodations: number; vehicles: number; bookings: number; reviews: number;
+  };
+  pending: { bookings: number; reviews: number };
+  revenue: { paid_total: string; paid_count: number };
+  avg_rating: number;
+  scope: 'all' | 'company' | 'none';
+}
+
+/**
+ * Contadores del panel, agregados en la base.
+ *
+ * Sustituye a cinco listados completos —tours, tours de ciudad, itinerarios,
+ * hospedajes y vehículos— que se bajaban enteros solo para contarlos. La
+ * respuesta ronda los 200 bytes.
+ */
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  const { data } = await api.get<DashboardSummary>('/dashboard/summary/');
+  return data;
+}
+
 /**
  * Reservas del panel. El aislamiento lo aplica la API sin necesidad de
  * parámetros: un proveedor solo recibe las reservas de su empresa
