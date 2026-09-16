@@ -99,7 +99,10 @@ export interface DestinationPayload {
 export async function listDestinations(): Promise<Destination[]> {
   // `mine=true`: el proveedor solo ve los destinos que propuso, para seguir su
   // estado. El catálogo se gestiona en el panel admin.
-  const { data } = await api.get<Destination[]>('/destinations/', { params: { all: true, mine: 'true' } });
+  // `view=list`: la tabla solo pinta foto, nombre, región, país y estado.
+  const { data } = await api.get<Destination[]>(
+    '/destinations/', { params: { all: true, mine: 'true', view: 'list' } },
+  );
   return data;
 }
 export async function getDestination(id: number): Promise<Destination> {
