@@ -22,6 +22,8 @@ export interface CompanyRef { id: number; name: string }
 export type Accommodation = {
   id: number;
   name: string;
+  /** URL del hospedaje en el portal; se genera del nombre si se deja vacío. */
+  slug?: string;
   accommodation_type: AccommodationType | '';
   description: string;
   location: string;

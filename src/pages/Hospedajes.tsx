@@ -60,7 +60,7 @@ const emptyFlags = () =>
   Object.fromEntries(AMENITY_FLAGS.map((f) => [f, false])) as Record<AmenityFlag, boolean>;
 
 const EMPTY_FORM = () => ({
-  name: '', accommodation_type: 'hotel', description: '',
+  name: '', slug: '', accommodation_type: 'hotel', description: '',
   location: '', country: '', city_id: '' as number | '',
   latitude: '', longitude: '',
   price_per_night: '', currency: 'USD',
@@ -160,7 +160,7 @@ function Hospedajes() {
       const flags = Object.fromEntries(AMENITY_FLAGS.map((f) => [f, a[f] ?? false])) as Record<AmenityFlag, boolean>;
       const countryName = a.city?.country_name ?? '';
       setForm({
-        name: a.name ?? '', accommodation_type: a.accommodation_type || 'hotel',
+        name: a.name ?? '', slug: a.slug ?? '', accommodation_type: a.accommodation_type || 'hotel',
         description: a.description ?? '', location: a.location ?? '',
         country: countryName, city_id: a.city?.id ?? '',
         latitude: a.latitude ? String(a.latitude) : '', longitude: a.longitude ? String(a.longitude) : '',
@@ -195,6 +195,8 @@ function Hospedajes() {
     setSaving(true);
     const payload: AccommodationPayload = {
       name: form.name,
+      // Vacío = que lo genere la API a partir del nombre.
+      slug: form.slug.trim() || undefined,
       accommodation_type: form.accommodation_type as AccommodationPayload['accommodation_type'],
       description: form.description,
       location: form.location,
@@ -294,6 +296,19 @@ function Hospedajes() {
                   <Input label={`${t('common.name')} *`} value={form.name} required
                     placeholder="Ej. Hotel Boutique Zona Colonial"
                     onChange={(e) => set('name', e.target.value)} />
+                  <div>
+                    <label className={labelClass}>Dirección en el portal (slug)</label>
+                    <input
+                      value={form.slug}
+                      onChange={(e) => set('slug', e.target.value)}
+                      placeholder="hotel-boutique-zona-colonial"
+                      className={fieldClass}
+                    />
+                    <p className="mt-1 text-xs text-slate-400">
+                      /hospedaje/<span className="font-medium text-slate-500">{form.slug || 'se-genera-del-nombre'}</span>
+                      {' '}— si lo dejas vacío se crea solo y se numera si ya existe.
+                    </p>
+                  </div>
                   <div>
                     <label className={labelClass}>{t('common.type')}</label>
                     <IconSelect value={form.accommodation_type} onChange={(v) => set('accommodation_type', v)}
