@@ -7,6 +7,7 @@ import type { ApprovalStatus } from '../services/pois';
 import IconSelect from '../components/IconSelect';
 import { ImageUploader, GalleryUploader } from '../components/ImageUploader';
 import RichTextEditor from '../components/RichTextEditor';
+import { apiErrorMessage } from '../lib/apiError';
 
 // CRUD único de tours de proveedor (unifica "tours" y "tours de POI": son el
 // mismo modelo Tour). El tipo de tour es seleccionable (todos menos 'city', que
@@ -227,8 +228,8 @@ const Tours = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const { user, can } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.profile?.role === 'superadmin';
+  const { user, can, isAdminOrAbove } = useAuth();
+  const isAdmin = isAdminOrAbove();
   // Permisos RBAC: sin ellos la API rechaza la escritura, así que no se ofrece.
   const canCreate = can('tour:create');
   const canDelete = can('tour:delete');
@@ -263,8 +264,8 @@ const Tours = () => {
       setFormTab('resumen');
       setView('create');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch {
-      setError('No se pudo cargar el tour para editar.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo cargar el tour para editar.'));
     }
   };
 
@@ -273,7 +274,7 @@ const Tours = () => {
     setLoadingList(true);
     api.get('/tours/?mine=true')
       .then(({ data }) => setTours((data as TourRow[]).filter((t) => t.tour_type !== 'city')))
-      .catch(() => setTours([]))
+      .catch((err) => { setTours([]); setError(apiErrorMessage(err, 'No se pudieron cargar los tours.')); })
       .finally(() => setLoadingList(false));
   };
 
@@ -292,8 +293,9 @@ const Tours = () => {
       await api.delete(`/tours/${id}/`);
       setDeleteId(null);
       loadTours();
-    } catch {
+    } catch (err) {
       setDeleteId(null);
+      setError(apiErrorMessage(err, 'No se pudo eliminar el tour.'));
     }
   };
 
@@ -375,8 +377,7 @@ const Tours = () => {
       loadTours();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      const detail = (err as { response?: { data?: unknown } })?.response?.data;
-      setError(typeof detail === 'string' ? detail : 'No se pudo guardar el tour. Revisa los campos e inténtalo de nuevo.');
+      setError(apiErrorMessage(err, 'No se pudo guardar el tour. Revisa los campos e inténtalo de nuevo.'));
     } finally {
       setSaving(false);
     }

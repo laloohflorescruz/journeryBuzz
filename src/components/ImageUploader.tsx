@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import api from '../services/api';
+import { apiErrorMessage } from '../lib/apiError';
 
 interface UploadResponse {
   id: number;
@@ -27,8 +28,7 @@ async function uploadFile(file: File, folder?: string): Promise<UploadResponse> 
 }
 
 function errorMessage(err: unknown): string {
-  const e = err as { response?: { data?: { error?: string } } };
-  return e.response?.data?.error || 'Error al subir la imagen.';
+  return apiErrorMessage(err, 'Error al subir la imagen.');
 }
 
 // ─── Single image ─────────────────────────────────────────────────────────────

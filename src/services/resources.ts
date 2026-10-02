@@ -117,6 +117,12 @@ export async function cancelBooking(id: number): Promise<Booking> {
   return data;
 }
 
+/** Marca como realizada una reserva confirmada. 400 si no está confirmada. */
+export async function completeBooking(id: number): Promise<Booking> {
+  const { data } = await api.post<Booking>(`/bookings/${id}/complete/`);
+  return data;
+}
+
 export async function listPayments(): Promise<Payment[]> {
   const { data } = await api.get<Payment[]>('/payments/');
   return data;

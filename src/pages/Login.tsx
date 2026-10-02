@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { apiErrorMessage } from '../lib/apiError';
 
 const Login: React.FC = () => {
   const { login, logout } = useAuth();
@@ -27,17 +28,14 @@ const Login: React.FC = () => {
         return;
       }
       navigate('/', { replace: true });
-    } catch (err: any) {
+    } catch (err) {
       // Distingue: sin respuesta = red/CORS/servidor caído; con respuesta = credenciales u otro.
-      let msg: string;
-      if (err.response) {
-        msg = err.response.data?.error || (err.response.status === 401
+      const status = (err as { response?: { status?: number } }).response?.status;
+      setError(status == null
+        ? 'No se pudo conectar con el servidor. Verifica que el backend esté activo y que este origen esté permitido (CORS).'
+        : apiErrorMessage(err, status === 401
           ? 'Credenciales inválidas. Inténtalo de nuevo.'
-          : `Error del servidor (${err.response.status}).`);
-      } else {
-        msg = 'No se pudo conectar con el servidor. Verifica que el backend esté activo y que este origen esté permitido (CORS).';
-      }
-      setError(msg);
+          : `Error del servidor (${status}).`));
     } finally {
       setLoading(false);
     }
@@ -189,17 +187,6 @@ const Login: React.FC = () => {
               )}
             </button>
           </form>
-
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => { setUsername('superadmin'); setPassword('Admin2026!'); }}
-              className="w-full py-2.5 border border-dashed border-gray-300 rounded-xl text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              <span>⚡</span>
-              <span>Acceso rápido — superadmin</span>
-            </button>
-          </div>
 
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-center text-xs text-gray-400">

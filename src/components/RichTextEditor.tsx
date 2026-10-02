@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { sanitizeHtml, safeUrl } from '../lib/html';
 
 // Editor de texto enriquecido sin dependencias (contentEditable). Guarda HTML.
 // Portado del admin para el mismo concepto/modularidad.
@@ -15,12 +16,18 @@ const RichTextEditor: React.FC<{
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (ref.current && ref.current.innerHTML !== (value || '')) ref.current.innerHTML = value || '';
+    // El valor viene de la API (lo pueden escribir empresas y formularios
+    // públicos): se sanea antes de meterlo en el DOM editable.
+    const clean = sanitizeHtml(value || '');
+    if (ref.current && ref.current.innerHTML !== clean) ref.current.innerHTML = clean;
   }, [value]);
 
-  const emit = () => onChange(ref.current?.innerHTML ?? '');
+  const emit = () => onChange(sanitizeHtml(ref.current?.innerHTML ?? ''));
   const exec = (cmd: string, arg?: string) => { ref.current?.focus(); document.execCommand(cmd, false, arg); emit(); };
-  const addLink = () => { const url = window.prompt('URL del enlace:'); if (url) exec('createLink', url); };
+  const addLink = () => {
+    const url = safeUrl(window.prompt('URL del enlace (https://…):'));
+    if (url) exec('createLink', url);
+  };
 
   return (
     <div>

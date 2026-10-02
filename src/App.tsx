@@ -10,7 +10,6 @@ import Footer from './components/Footer';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CityTours from './pages/CityTours';
-import ProviderProfile from './pages/ProviderProfile';
 import Hospedajes from './pages/Hospedajes';
 import RentACar from './pages/RentACar';
 import Tours from './pages/Tours';
@@ -91,14 +90,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><Dashboard /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/provider/:providerId"
-            element={
-              <ProtectedRoute requirePermission="company:view">
-                <AppLayout><ProviderProfile /></AppLayout>
               </ProtectedRoute>
             }
           />

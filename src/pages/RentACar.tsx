@@ -9,6 +9,7 @@ import {
   listVehicles, createVehicle, updateVehicle, deleteVehicle, getVehicle,
   type Vehicle, type VehiclePayload,
 } from '../services/vehicles';
+import { apiErrorMessage } from '../lib/apiError';
 
 // CRUD de la flota de alquiler, conectado a /vehicles/. Mismo lenguaje visual
 // que Tours/POIs/Hospedajes: lista sobria + formulario por pestañas.
@@ -77,8 +78,8 @@ const money = (amount: string, currency: string) =>
 
 function RentACar() {
   const { t } = useTranslation();
-  const { user, can } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.profile?.role === 'superadmin';
+  const { user, can, isAdminOrAbove } = useAuth();
+  const isAdmin = isAdminOrAbove();
   // Permisos RBAC: sin ellos la API rechaza la escritura, así que no se ofrece.
   const canCreate = can('vehicle:create');
   const canUpdate = can('vehicle:update');
@@ -172,8 +173,8 @@ function RentACar() {
       setFormTab('general');
       setView('form');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch {
-      setError('No se pudo cargar el vehículo para editar.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo cargar el vehículo para editar.'));
     }
   };
 
@@ -218,8 +219,7 @@ function RentACar() {
       load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      const detail = (err as { response?: { data?: unknown } })?.response?.data;
-      setError(typeof detail === 'string' ? detail : 'No se pudo guardar el vehículo. Revisa los campos.');
+      setError(apiErrorMessage(err, 'No se pudo guardar el vehículo. Revisa los campos.'));
     } finally {
       setSaving(false);
     }

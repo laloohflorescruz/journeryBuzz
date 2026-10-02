@@ -8,6 +8,7 @@ import {
 } from '../lib/dateFilter';
 import { useAuth } from '../context/AuthContext';
 import { listPayments, refundPayment, type Payment, type PaymentStatus } from '../services/resources';
+import { apiErrorMessage } from '../lib/apiError';
 
 const PAGE_SIZE = 8;
 
@@ -73,21 +74,17 @@ function Payments() {
     setRefundBusy(true);
     setRefundError(null);
     try {
+      // Un rechazo de la pasarela llega como 400 con {error} y cae en el catch.
       const res = await refundPayment(refunding.id, refundAmount.trim() || undefined);
-      if (!res.success) {
-        setRefundError('La pasarela rechazó el reembolso. El pago no se modificó.');
-        return;
-      }
       setPayments((list) => list.map((p) => (p.id === refunding.id ? { ...p, status: res.status } : p)));
       setSelected((s) => (s && s.id === refunding.id ? { ...s, status: res.status } : s));
       setRefunding(null);
     } catch (err) {
-      const e = err as { response?: { status?: number; data?: { error?: string } } };
-      const code = e.response?.status;
+      const code = (err as { response?: { status?: number } }).response?.status;
       setRefundError(
         code === 503 ? 'La pasarela de pago no está configurada; no se puede reembolsar.'
         : code === 403 ? 'No tienes permiso para reembolsar pagos.'
-        : e.response?.data?.error || 'No se pudo reembolsar el pago.',
+        : apiErrorMessage(err, 'No se pudo reembolsar el pago.'),
       );
     } finally {
       setRefundBusy(false);

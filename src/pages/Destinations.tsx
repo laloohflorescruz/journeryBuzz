@@ -14,6 +14,7 @@ import {
   listDestinations, createDestination,
   type Destination, type DestinationPayload, type Region,
 } from '../services/destinations';
+import { apiErrorMessage } from '../lib/apiError';
 
 // Propuestas de destino. Desde este panel solo se proponen: el listado muestra
 // únicamente lo que envió el usuario conectado y, una vez enviado, el destino se
@@ -226,8 +227,7 @@ function Destinations() {
       setView('list'); load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      const detail = (err as { response?: { data?: unknown } })?.response?.data;
-      setError(typeof detail === 'string' ? detail : 'No se pudo guardar el destino. Revisa el nombre/slug (únicos).');
+      setError(apiErrorMessage(err, 'No se pudo guardar el destino. Revisa el nombre/slug (únicos).'));
     } finally { setSaving(false); }
   };
 

@@ -121,8 +121,6 @@ export function emojiToIcon(emoji: string): string {
   return EMOJI_ICON[emoji?.trim()] || 'pin';
 }
 
-// Nombres de icono disponibles (para selectores).
-export const ICON_NAMES = Object.keys(ICONS);
 
 // Resuelve un valor de icono: si ya es un nombre válido lo usa; si es emoji
 // (datos antiguos) lo convierte. Fallback: 'pin'.

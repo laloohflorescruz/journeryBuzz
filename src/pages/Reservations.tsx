@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
-import Modal, { modalBtnGhost } from '../components/Modal';
+import Modal, { ConfirmModal, modalBtnGhost } from '../components/Modal';
 import DateFilterPanel from '../components/DateFilterPanel';
 import {
   dayOf, matchesDateFilter, EMPTY_DATE_FILTER, type DateFilterValue,
 } from '../lib/dateFilter';
 import { useAuth } from '../context/AuthContext';
 import {
-  listBookings, confirmBooking, cancelBooking,
+  listBookings, confirmBooking, cancelBooking, completeBooking,
   type Booking, type BookingStatus,
 } from '../services/resources';
+import { apiErrorMessage } from '../lib/apiError';
 
 const PAGE_SIZE = 8;
 
@@ -63,6 +64,14 @@ function Reservations() {
 
   // Confirmar/cancelar reemplazan la fila con la reserva que devuelve la API,
   // así el estado mostrado siempre es el del servidor.
+  // Cancelar no se deshace: se confirma antes con el modal compartido.
+  const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    await runAction(cancelTarget.id, cancelBooking);
+    setCancelTarget(null);
+  };
+
   const runAction = async (id: number, action: (id: number) => Promise<Booking>) => {
     setActionId(id);
     setActionError(null);
@@ -70,8 +79,8 @@ function Reservations() {
       const updated = await action(id);
       setBookings((list) => list.map((b) => (b.id === id ? updated : b)));
       setSelected((s) => (s && s.id === id ? updated : s));
-    } catch {
-      setActionError('No se pudo actualizar la reserva. Puede que no tengas permiso para esta acción.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'No se pudo actualizar la reserva. Puede que no tengas permiso para esta acción.'));
     } finally {
       setActionId(null);
     }
@@ -234,10 +243,20 @@ function Reservations() {
                               Confirmar
                             </button>
                           )}
+                          {b.status === 'confirmed' && canConfirm && (
+                            <button
+                              type="button" disabled={busy}
+                              onClick={() => runAction(b.id, completeBooking)}
+                              title="Marcar el servicio como realizado"
+                              className="rounded-lg border border-sky-300 px-2.5 py-1 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-50 disabled:opacity-40"
+                            >
+                              Completar
+                            </button>
+                          )}
                           {b.status !== 'cancelled' && b.status !== 'completed' && canCancel && (
                             <button
                               type="button" disabled={busy}
-                              onClick={() => runAction(b.id, cancelBooking)}
+                              onClick={() => setCancelTarget(b)}
                               className="rounded-lg px-2.5 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-40"
                             >
                               {t('common.cancel')}
@@ -330,6 +349,26 @@ function Reservations() {
           </>
         )}
       </Modal>
+      <ConfirmModal
+        open={!!cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={() => { void confirmCancel(); }}
+        busy={!!cancelTarget && actionId === cancelTarget.id}
+        title="Cancelar reserva"
+        confirmLabel="Cancelar reserva"
+        cancelLabel="Volver"
+        message={cancelTarget && (
+          <>
+            Se cancelará la reserva de <strong>{cancelTarget.customer_username || cancelTarget.contact_name || 'este cliente'}</strong>
+            {cancelTarget.tour?.name ? <> para <strong>{cancelTarget.tour.name}</strong></> : null}. Esta acción no se puede deshacer.
+            {cancelTarget.is_paid && (
+              <span className="mt-2 block text-amber-700">
+                La reserva ya está pagada: recuerda emitir el reembolso desde «Pagos».
+              </span>
+            )}
+          </>
+        )}
+      />
     </div>
   );
 }

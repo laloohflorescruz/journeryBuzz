@@ -8,6 +8,7 @@ import DateFilterPanel from '../components/DateFilterPanel';
 import {
   dayOf, matchesDateFilter, EMPTY_DATE_FILTER, type DateFilterValue,
 } from '../lib/dateFilter';
+import { apiErrorMessage } from '../lib/apiError';
 
 const PAGE_SIZE = 8;
 
@@ -74,8 +75,8 @@ function Reviews() {
     try {
       const updated = await moderateReview(id, decision);
       setReviews((list) => list.map((r) => (r.id === id ? updated : r)));
-    } catch {
-      setActionError('No se pudo moderar la reseña. Puede que no tengas permiso para esta acción.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'No se pudo moderar la reseña. Puede que no tengas permiso para esta acción.'));
     } finally {
       setActionId(null);
     }

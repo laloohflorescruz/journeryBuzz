@@ -94,9 +94,9 @@ function StringList({ label, hint, items, placeholder, onChange }: {
 
 function Itineraries() {
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
+  const { isAdminOrAbove } = useAuth();
   // La API exige admin (o superior) para escribir; sin ello no ofrecemos acciones.
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.profile?.role === 'superadmin';
+  const isAdmin = isAdminOrAbove();
 
   const [view, setView] = useState<'list' | 'form'>('list');
   const [items, setItems] = useState<Itinerary[]>([]);
@@ -170,8 +170,8 @@ function Itineraries() {
       setEditingId(id);
       setView('form');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch {
-      setError('No se pudo cargar el itinerario para editar.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo cargar el itinerario para editar.'));
     }
   };
 

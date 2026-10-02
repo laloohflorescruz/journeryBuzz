@@ -9,6 +9,7 @@ import {
   listPois, getPoi, createPoi, updatePoi, deletePoi,
   type POI, type POIPayload,
 } from '../services/pois';
+import { apiErrorMessage } from '../lib/apiError';
 
 // CRUD de POIs (campos núcleo): identidad, categoría, geografía, multimedia y
 // distinciones. Diseño sobrio consistente con buzz.
@@ -163,7 +164,7 @@ function POIs() {
       if (country) { try { const { data } = await api.get(`/cities/?country_id=${country.id}`); setCitiesDb(data); } catch { setCitiesDb([]); } }
       setEditingId(id); setView('form');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch { setError('No se pudo cargar el POI para editar.'); }
+    } catch (err) { setError(apiErrorMessage(err, 'No se pudo cargar el POI para editar.')); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -207,8 +208,7 @@ function POIs() {
       setView('list'); setEditingId(null); load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      const detail = (err as { response?: { data?: unknown } })?.response?.data;
-      setError(typeof detail === 'string' ? detail : 'No se pudo guardar el POI. Revisa los campos obligatorios.');
+      setError(apiErrorMessage(err, 'No se pudo guardar el POI. Revisa los campos obligatorios.'));
     } finally { setSaving(false); }
   };
 

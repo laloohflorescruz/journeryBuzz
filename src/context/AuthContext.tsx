@@ -61,6 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) {
+      // Un usuario guardado sin token no es una sesión (pudo escribirse a mano
+      // en localStorage): se descarta en lugar de pintar el panel con él.
+      localStorage.removeItem('buzz_user');
+      setUser(null);
       setLoading(false);
       return;
     }
