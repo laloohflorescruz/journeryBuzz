@@ -3,6 +3,37 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y versionado [SemVer](https://semver.org/lang/es/).
 
+## [No publicado]
+
+## [0.2.0] — 2026-10-01
+
+Auditoría de seguridad y calidad del panel del superadmin.
+
+### Seguridad
+- **Eliminado el botón «Acceso rápido» que rellenaba las credenciales del
+  superadmin.** Siguen en el historial de git: hay que cambiar esa contraseña.
+- El editor enriquecido sanea el HTML que llega de la API (DOMPurify): un
+  `<img onerror>` enviado desde el alta pública ya no se ejecuta al abrir la
+  ficha. Los enlaces solo aceptan `http(s)`/`mailto`.
+- Un usuario guardado en el navegador sin token ya no abre el panel.
+
+### Añadido
+- Reservas: acción «Completar» y confirmación antes de cancelar.
+
+### Cambiado
+- Los errores muestran el motivo real de la API (`apiErrorMessage`): guardar,
+  borrar, moderar, reembolsar, subir imágenes y el 429 del login.
+- Las comprobaciones de rol usan `AuthContext`.
+
+### Corregido
+- Los listados de tours y tours de ciudad se veían vacíos al fallar la carga, y
+  sus borrados fallaban sin avisar.
+
+### Eliminado
+- Código muerto: `src/data/` (datos de prueba), `RegisterBusiness.tsx`,
+  `ProviderProfile.tsx` y su ruta (página de prueba con precios en €),
+  `services/tours.ts` y la carpeta `backpacking-buzz/` anidada.
+
 ## [0.1.0] — 2026-09-13
 
 Primera versión numerada. Buzz pasa a ser el **panel del proveedor**: gestiona
