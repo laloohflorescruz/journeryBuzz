@@ -117,7 +117,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ label, value, fold
 // ─── Créditos / licencia Creative Commons (propiedades del MediaAsset) ──────────
 
 // Créditos de una imagen (snake_case = igual que la API MediaAsset).
-export interface AssetCredit {
+interface AssetCredit {
   id?: number;
   author: string;
   source_url: string;
@@ -132,7 +132,7 @@ const emptyCredit = (): AssetCredit => ({
 });
 
 // Licencias Creative Commons comunes (label → URL canónica).
-export const CC_LICENSES: { label: string; url: string }[] = [
+const CC_LICENSES: { label: string; url: string }[] = [
   { label: 'CC BY 4.0', url: 'https://creativecommons.org/licenses/by/4.0/' },
   { label: 'CC BY-SA 4.0', url: 'https://creativecommons.org/licenses/by-sa/4.0/' },
   { label: 'CC BY-ND 4.0', url: 'https://creativecommons.org/licenses/by-nd/4.0/' },
@@ -144,7 +144,7 @@ export const CC_LICENSES: { label: string; url: string }[] = [
 ];
 
 // Atribución sugerida (ej. "Photo by Jane Doe, licensed under CC BY-SA 4.0").
-export function buildAttribution(c: AssetCredit): string {
+function buildAttribution(c: AssetCredit): string {
   if (!c.author && !c.license) return '';
   const by = c.author ? `Photo by ${c.author}` : 'Photo';
   const lic = c.license ? `, licensed under ${c.license}` : '';

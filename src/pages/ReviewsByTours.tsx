@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import { listReviews, type Review, type ReviewStatus } from '../services/resources';
+import Stars from '../components/Stars';
+import { fmtDate } from '../lib/format';
 
 const GROUPS_PER_PAGE = 4;
 
@@ -13,22 +15,6 @@ const STATUS_STYLE: Record<ReviewStatus, string> = {
 };
 
 const STATUS_FILTERS: (ReviewStatus | 'all')[] = ['all', 'pending', 'approved', 'rejected'];
-
-const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString('es', { dateStyle: 'medium' }) : '—';
-
-// Estrellas sobrias (sin emojis) sobre 5.
-const Stars = ({ rating }: { rating: number }) => (
-  <span className="inline-flex items-center gap-0.5" title={`${rating}/5`}>
-    {Array.from({ length: 5 }, (_, i) => (
-      <Icon
-        key={i}
-        name="star"
-        className={`h-3.5 w-3.5 ${i < Math.round(rating) ? 'text-amber-400' : 'text-slate-200'}`}
-      />
-    ))}
-  </span>
-);
 
 interface TourGroup {
   name: string;

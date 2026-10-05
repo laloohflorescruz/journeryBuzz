@@ -15,6 +15,8 @@ import {
   type Destination, type DestinationPayload, type Region,
 } from '../services/destinations';
 import { apiErrorMessage } from '../lib/apiError';
+import { ChipPicker } from '../components/FormFields';
+import { fieldClass, labelClass, toSlug, toggleId } from '../lib/forms';
 
 // Propuestas de destino. Desde este panel solo se proponen: el listado muestra
 // únicamente lo que envió el usuario conectado y, una vez enviado, el destino se
@@ -30,43 +32,6 @@ const FORM_TABS: { key: FormTab; label: string }[] = [
   { key: 'ficha', label: 'Ficha técnica' },
   { key: 'calidad', label: 'Coste y calidad de vida' },
 ];
-
-const toggleId = (list: number[], id: number) =>
-  list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-
-// Selector múltiple en etiquetas, igual que en POIs.
-function ChipPicker({ label, options, selected, onToggle }: {
-  label: string;
-  options: NamedCatalog[];
-  selected: number[];
-  onToggle: (id: number) => void;
-}) {
-  const visible = options.filter((o) => o.is_active !== false);
-  return (
-    <div>
-      <label className={labelClass}>
-        {label} {selected.length > 0 && <span className="font-normal text-slate-400">· {selected.length}</span>}
-      </label>
-      {visible.length === 0 ? (
-        <p className="text-sm text-slate-400">Sin opciones disponibles.</p>
-      ) : (
-        <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
-          {visible.map((o) => {
-            const on = selected.includes(o.id);
-            return (
-              <button key={o.id} type="button" onClick={() => onToggle(o.id)}
-                className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
-                  on ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
-                }`}>
-                {o.name_es || o.name_en}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // Lista de textos editable (pros, contras, entorno).
 function TextList({ label, items, onChange, placeholder }: {
@@ -105,12 +70,6 @@ const REGIONS: { value: Region; label: string }[] = [
   { value: 'africa', label: 'África' }, { value: 'oceania', label: 'Oceanía' },
 ];
 const REGION_LABEL: Record<string, string> = Object.fromEntries(REGIONS.map((r) => [r.value, r.label]));
-
-const toSlug = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-const fieldClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
-const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
 
 const EMPTY_FORM = () => ({
   name: '', slug: '', slugTouched: false, region: '' as Region | '',

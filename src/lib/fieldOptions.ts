@@ -17,9 +17,6 @@ export const monthsToMask = (names: string[]): number =>
     return i >= 0 ? mask | (1 << i) : mask;
   }, 0);
 
-export const maskToMonths = (mask: number): string[] =>
-  MONTHS.filter((_, i) => (mask & (1 << i)) !== 0);
-
 // Idioma → ISO 639-1
 export const LANGUAGE_OPTIONS: Option[] = [
   { value: 'es', label: 'Español' }, { value: 'en', label: 'Inglés' },
@@ -175,10 +172,6 @@ export const COST_LABELS: Record<string, string> = {
   mc_burger: 'Hamburguesa',
   pizza: 'Pizza',
 };
-
-// Devuelve la etiqueta en español de una clave, o la clave "humanizada" como respaldo.
-export const labelFor = (map: Record<string, string>, key: string): string =>
-  map[key] ?? key.replace(/_/g, ' ');
 
 // Selects especiales dentro de "Calidad de Vida" (clave -> opciones)
 export const QOL_SELECT_OPTIONS: Record<string, Option[]> = {

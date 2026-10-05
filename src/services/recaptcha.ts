@@ -15,8 +15,6 @@ declare global {
   }
 }
 
-export const recaptchaEnabled = (): boolean => Boolean(SITE_KEY);
-
 let loader: Promise<void> | null = null;
 
 /** Carga el script de reCAPTCHA una sola vez (idempotente). */

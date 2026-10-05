@@ -10,8 +10,6 @@ declare global {
   }
 }
 
-export const analyticsEnabled = (): boolean => Boolean(MEASUREMENT_ID);
-
 let initialized = false;
 
 /** Carga gtag.js una sola vez. Sin measurement id no hace nada. */

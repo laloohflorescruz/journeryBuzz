@@ -6,6 +6,7 @@ import DateFilterPanel from '../components/DateFilterPanel';
 import {
   dayOf, matchesDateFilter, EMPTY_DATE_FILTER, type DateFilterValue,
 } from '../lib/dateFilter';
+import { money } from '../lib/format';
 
 // Participantes: quién viene, a qué y cuándo. Cada fila es una reserva real
 // (antes esta pantalla mostraba siete personas inventadas), así que el
@@ -37,9 +38,6 @@ const fmtDate = (iso: string | null) =>
 
 const fmtDateTime = (iso: string) =>
   iso ? new Date(iso).toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
-
-const money = (amount: string, currency: string) =>
-  `${currency} ${Number(amount || 0).toLocaleString()}`;
 
 function Participants() {
   const [bookings, setBookings] = useState<Booking[]>([]);

@@ -5,6 +5,20 @@ y versionado [SemVer](https://semver.org/lang/es/).
 
 ## [No publicado]
 
+### Cambiado
+- Limpieza de código repetido sin cambios visibles: `lib/tourForm.ts` (todo
+  lo que Tours y Tours de ciudad tenían copiado: opciones, plantillas, tabla
+  de penalidades, estado inicial y mapeo de la API), `lib/forms.ts`
+  (`fieldClass`/`labelClass`, que estaban en 7 páginas, `toSlug`,
+  `toggleId`), `lib/format.ts` (`money`, `fmtDate`),
+  `components/FormFields.tsx` (`Input`, `Textarea`, `StringList`,
+  `ChipPicker`) y `components/Stars.tsx`.
+- Un importe vacío se muestra «0» en vez de «NaN» en Pagos y Reservas.
+
+### Eliminado
+- Funciones sin uso: `getDestination`/`updateDestination`/`deleteDestination`,
+  `analyticsEnabled`, `recaptchaEnabled`, `maskToMonths`, `labelFor`.
+
 ## [0.2.0] — 2026-10-01
 
 Auditoría de seguridad y calidad del panel del superadmin.

@@ -10,6 +10,7 @@ import {
   listItineraries, getItinerary, createItinerary, updateItinerary, deleteItinerary,
   type Itinerary, type ItineraryPayload, type Difficulty,
 } from '../services/itineraries';
+import { fieldClass, labelClass, toSlug } from '../lib/forms';
 
 // CRUD de itinerarios conectado a /itineraries/. Mismo lenguaje visual sobrio
 // que Hospedajes/Tours: lista + formulario a página completa (sin modal), datos
@@ -48,11 +49,6 @@ const IMAGE_ICONS: IconOption[] = [
 ];
 
 // Slug normalizado de una categoría (ej. 'Aventura y naturaleza' → 'aventura-y-naturaleza').
-const toSlug = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-const fieldClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
-const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
 
 const EMPTY_FORM = () => ({
   title: '', description: '', category: '', difficulty: 'Fácil' as Difficulty,

@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { listPayments, refundPayment, type Payment, type PaymentStatus } from '../services/resources';
 import { apiErrorMessage } from '../lib/apiError';
+import { money, fmtDate } from '../lib/format';
 
 const PAGE_SIZE = 8;
 
@@ -22,12 +23,6 @@ const STATUS_STYLE: Record<PaymentStatus, string> = {
 };
 
 const STATUS_FILTERS: (PaymentStatus | 'all')[] = ['all', 'paid', 'pending', 'processing', 'failed', 'refunded'];
-
-const money = (amount: string, currency: string) =>
-  `${currency} ${Number(amount).toLocaleString()}`;
-
-const fmtDate = (iso: string) =>
-  iso ? new Date(iso).toLocaleDateString('es', { dateStyle: 'medium' }) : '—';
 
 function Payments() {
   const { t } = useTranslation();

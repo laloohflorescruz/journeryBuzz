@@ -105,18 +105,7 @@ export async function listDestinations(): Promise<Destination[]> {
   );
   return data;
 }
-export async function getDestination(id: number): Promise<Destination> {
-  const { data } = await api.get<Destination>(`/destinations/${id}/`);
-  return data;
-}
 export async function createDestination(payload: DestinationPayload): Promise<Destination> {
   const { data } = await api.post<Destination>('/destinations/', payload);
   return data;
-}
-export async function updateDestination(id: number, payload: DestinationPayload): Promise<Destination> {
-  const { data } = await api.patch<Destination>(`/destinations/${id}/`, payload);
-  return data;
-}
-export async function deleteDestination(id: number): Promise<void> {
-  await api.delete(`/destinations/${id}/`);
 }

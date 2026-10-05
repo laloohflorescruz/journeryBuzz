@@ -12,6 +12,9 @@ import {
   type Accommodation, type AccommodationPayload, type AmenityFlag,
 } from '../services/accommodations';
 import { apiErrorMessage } from '../lib/apiError';
+import { Input } from '../components/FormFields';
+import { fieldClass, labelClass } from '../lib/forms';
+import { money } from '../lib/format';
 
 // CRUD de hospedajes conectado a /accommodations/. Mismo lenguaje visual que
 // Tours/POIs: lista sobria + formulario por pestañas.
@@ -71,19 +74,6 @@ const EMPTY_FORM = () => ({
   ...emptyFlags(),
 });
 type FormState = ReturnType<typeof EMPTY_FORM>;
-
-const fieldClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
-const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
-
-const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string }> = ({ label, className, ...p }) => (
-  <div>
-    <label className={labelClass}>{label}</label>
-    <input {...p} className={`${fieldClass} ${className ?? ''}`} />
-  </div>
-);
-
-const money = (amount: string, currency: string) =>
-  `${currency} ${Number(amount || 0).toLocaleString()}`;
 
 function Hospedajes() {
   const { t } = useTranslation();

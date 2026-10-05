@@ -12,6 +12,7 @@ import {
   type Booking, type BookingStatus,
 } from '../services/resources';
 import { apiErrorMessage } from '../lib/apiError';
+import { money, fmtDate } from '../lib/format';
 
 const PAGE_SIZE = 8;
 
@@ -24,12 +25,6 @@ const STATUS_STYLE: Record<BookingStatus, string> = {
 };
 
 const STATUS_FILTERS: (BookingStatus | 'all')[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
-
-const money = (amount: string, currency: string) =>
-  `${currency} ${Number(amount).toLocaleString()}`;
-
-const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString('es', { dateStyle: 'medium' }) : '—';
 
 function Reservations() {
   const { t } = useTranslation();

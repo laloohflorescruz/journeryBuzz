@@ -1,8 +1,8 @@
 // Shared professional line-icon set (Heroicons-style, single stroke, currentColor).
 // Mirror of the app's Icon set so the admin can render real icons instead of emoji.
-// Use: <Icon name="compass" className="h-5 w-5" /> or <Icon name={emojiToIcon('🎒')} />
+// Use: <Icon name="compass" className="h-5 w-5" /> or <Icon name={resolveIcon('🎒')} />
 
-export const ICONS: Record<string, string[]> = {
+const ICONS: Record<string, string[]> = {
   // buzz-specific (sidebar / dashboard)
   'chart-bar': ['M3 3v16.5A1.5 1.5 0 004.5 21H21', 'M7.5 16.5v-4.5', 'M12 16.5V9', 'M16.5 16.5v-7.5'],
   'chart-pie': ['M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z', 'M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z'],
@@ -117,7 +117,7 @@ const EMOJI_ICON: Record<string, string> = {
   '🦜': 'paw', '📷': 'camera', '⚽': 'running', '💆': 'flower', '🏆': 'star',
 };
 
-export function emojiToIcon(emoji: string): string {
+function emojiToIcon(emoji: string): string {
   return EMOJI_ICON[emoji?.trim()] || 'pin';
 }
 

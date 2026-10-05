@@ -10,6 +10,8 @@ import {
   type POI, type POIPayload,
 } from '../services/pois';
 import { apiErrorMessage } from '../lib/apiError';
+import { ChipPicker } from '../components/FormFields';
+import { fieldClass, labelClass, toSlug, toggleId } from '../lib/forms';
 
 // CRUD de POIs (campos núcleo): identidad, categoría, geografía, multimedia y
 // distinciones. Diseño sobrio consistente con buzz.
@@ -19,49 +21,6 @@ interface NamedCatalog { id: number; name_en: string; name_es: string; is_active
 interface CategoryDb { id: number; name_en: string; name_es: string; icon: string; is_active: boolean }
 
 const PAGE_SIZE = 10;
-
-const toSlug = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-
-const fieldClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
-const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
-
-const toggleId = (list: number[], id: number) =>
-  list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-
-// Selector múltiple en forma de etiquetas, igual que en el perfil de usuario.
-function ChipPicker({ label, options, selected, onToggle }: {
-  label: string;
-  options: { id: number; name_es: string; name_en: string; is_active?: boolean }[];
-  selected: number[];
-  onToggle: (id: number) => void;
-}) {
-  const visible = options.filter((o) => o.is_active !== false);
-  return (
-    <div>
-      <label className={labelClass}>
-        {label} {selected.length > 0 && <span className="font-normal text-slate-400">· {selected.length}</span>}
-      </label>
-      {visible.length === 0 ? (
-        <p className="text-sm text-slate-400">Sin opciones disponibles.</p>
-      ) : (
-        <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/60 p-2">
-          {visible.map((o) => {
-            const on = selected.includes(o.id);
-            return (
-              <button key={o.id} type="button" onClick={() => onToggle(o.id)}
-                className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
-                  on ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
-                }`}>
-                {o.name_es || o.name_en}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 const EMPTY_FORM = () => ({
   name: '', slug: '', slugTouched: false, category_id: '' as number | '',

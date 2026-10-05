@@ -7,14 +7,15 @@ import type { ApprovalStatus } from '../services/pois';
 import IconSelect from '../components/IconSelect';
 import { ImageUploader, GalleryUploader } from '../components/ImageUploader';
 import RichTextEditor from '../components/RichTextEditor';
+import { Input, Textarea, StringList } from '../components/FormFields';
 import { apiErrorMessage } from '../lib/apiError';
-
-const LANGUAGE_OPTIONS = [
-  { value: 'es', label: 'Español' }, { value: 'en', label: 'Inglés' },
-  { value: 'pt', label: 'Portugués' }, { value: 'fr', label: 'Francés' },
-  { value: 'de', label: 'Alemán' }, { value: 'it', label: 'Italiano' },
-  { value: 'nl', label: 'Neerlandés' }, { value: 'ca', label: 'Catalán' },
-];
+import { fieldClass, labelClass } from '../lib/forms';
+import { fmtDate } from '../lib/format';
+import {
+  TABS, DIFFICULTY_OPTIONS, BEST_FOR_OPTIONS, SEASON_OPTIONS, COMMON_LANGS,
+  EMPTY_TOUR_FORM, tourToFormBase,
+  type ApiTourBase, type Category, type Activity, type Penalty, type FormTab,
+} from '../lib/tourForm';
 
 interface Place { id: number; name: string }
 interface TourRow {
@@ -28,176 +29,10 @@ interface TourRow {
 }
 
 const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Fácil', moderate: 'Moderada', hard: 'Difícil', extreme: 'Alta' };
-const fmtDateTime = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('es', { dateStyle: 'medium' }) : '—';
 
-interface ApiTour {
-  id: number; name: string; description: string; about: string;
-  city: string; country: string; duration: string; price: string;
-  prices?: { adult?: string; child?: string; senior?: string };
-  difficulty: string; max_group: number; best_for: string; best_season: string;
-  languages: string[]; image: string; gallery: string[];
-  latitude: number; longitude: number; is_active: boolean;
-  itinerary: ItineraryStep[]; highlights: string[]; includes: string[];
-  what_to_bring: string[]; recommendations: string[]; not_suitable_for: string[];
-  conditions: string[]; penalties: Penalty[]; available_dates: AvailableDate[];
-  payment_options: number[];
-  categories: { id: number }[]; activities: { id: number }[];
-}
-
-interface Category { id: number; name_en: string; name_es: string; icon: string }
-interface Activity { id: number; name_en: string; name_es: string; icon: string }
-interface Penalty { window: string; penalty: string; refund: string; tone: 'ok' | 'warn' | 'bad' }
-interface AvailableDate { date: string; spots: number }
-interface ItineraryStep { time: string; activity: string; description: string }
-
-type FormTab = 'resumen' | 'detalles' | 'multimedia' | 'itinerario' | 'incluye' | 'politicas';
-const TABS: { key: FormTab; label: string }[] = [
-  { key: 'resumen', label: '📋 Resumen' },
-  { key: 'detalles', label: '⏱️ Detalles' },
-  { key: 'multimedia', label: '🖼️ Multimedia' },
-  { key: 'itinerario', label: '🗺️ Itinerario' },
-  { key: 'incluye', label: '✅ Incluye' },
-  { key: 'politicas', label: '📄 Políticas' },
-];
-
-const DIFFICULTY_OPTIONS = [
-  { value: 'easy', label: 'Fácil', icon: 'hiking' },
-  { value: 'moderate', label: 'Moderada', icon: 'compass' },
-  { value: 'hard', label: 'Difícil', icon: 'mountain' },
-  { value: 'extreme', label: 'Alta', icon: 'climb' },
-];
-// Deben coincidir con los filtros "Ideal para" y "Época" de la app (backpacking-app CityTours).
-const BEST_FOR_OPTIONS = [
-  'Familias con niños', 'Parejas', 'Grupos de amigos', 'Viajeros solitarios',
-  'Estudiantes', 'Aventureros', 'Amantes de la comida', 'Aficionados a la cultura',
-];
-const SEASON_OPTIONS = [
-  'Todo el año', 'Primavera (Mar-May)', 'Verano (Jun-Ago)', 'Otoño (Sep-Nov)', 'Invierno (Dic-Feb)',
-];
-const COMMON_LANGS = LANGUAGE_OPTIONS.filter((o) => ['es', 'en', 'pt', 'fr', 'de', 'it', 'ca', 'nl'].includes(o.value));
-
-// Plantillas por defecto de la sección "Incluye" (el creador las puede editar/eliminar).
-const DEFAULT_INCLUDES = [
-  'Guía profesional',
-  'Entradas a los sitios indicados',
-  'Transporte local',
-  'Agua embotellada',
-];
-const DEFAULT_WHAT_TO_BRING = [
-  'Documento de identidad o pasaporte',
-  'Agua y protector solar',
-  'Ropa y calzado cómodos',
-  'Cámara de fotos',
-  'Efectivo para gastos personales',
-];
-const DEFAULT_RECOMMENDATIONS = [
-  'Llega puntual al punto de encuentro para no retrasar al grupo.',
-  'Usa calzado cómodo; el recorrido incluye tramos a pie.',
-  'Mantente hidratado y protégete del sol, sobre todo en verano.',
-  'Respeta las indicaciones del guía y las normas de cada lugar.',
-];
-const DEFAULT_NOT_SUITABLE = [
-  'Personas con movilidad reducida (el recorrido incluye tramos a pie y escaleras).',
-  'Mujeres embarazadas.',
-  'Menores de 6 años.',
-  'Personas con afecciones cardíacas o respiratorias graves.',
-];
-const DEFAULT_CONDITIONS = [
-  'Confirmación inmediata al reservar; recibirás un voucher por correo electrónico.',
-  'Preséntate en el punto de encuentro 15 minutos antes de la hora de inicio.',
-];
-const DEFAULT_PENALTIES: Penalty[] = [
-  { window: 'Más de 7 días antes', penalty: 'Sin penalidad', refund: 'Reembolso del 100%', tone: 'ok' },
-  { window: 'Entre 3 y 7 días antes', penalty: 'Penalidad del 50%', refund: 'Reembolso parcial', tone: 'warn' },
-  { window: 'Menos de 48 h o no presentarse', penalty: 'Penalidad del 100%', refund: 'Sin reembolso', tone: 'bad' },
-];
-
-const EMPTY_FORM = {
-  name: '', description: '', about: '', city: '', country: '',
-  duration: '', price: '', priceChild: '', priceSenior: '', difficulty: 'easy', maxGroup: 10,
-  image: '', latitude: '', longitude: '', category: '',
-  isActive: true,
-  bestFor: [] as string[],
-  bestSeason: [] as string[],
-  languages: [] as string[],
-  activities: [] as number[],
-  gallery: [] as string[],
-  highlights: [''],
-  includes: [...DEFAULT_INCLUDES],
-  whatToBring: [...DEFAULT_WHAT_TO_BRING],
-  recommendations: [...DEFAULT_RECOMMENDATIONS],
-  notSuitableFor: [...DEFAULT_NOT_SUITABLE],
-  conditions: [...DEFAULT_CONDITIONS],
-  itinerary: [{ time: '', activity: '', description: '' }] as ItineraryStep[],
-  penalties: DEFAULT_PENALTIES.map((p) => ({ ...p })),
-  availableDates: [{ date: '', spots: 10 }] as AvailableDate[],
-  paymentOptions: [25, 50, 100] as number[],
-};
-
-// Mapea un tour de la API al estado del formulario (para editar).
-const toList = (a?: string[]) => (a && a.length ? a : ['']);
-const splitCsv = (s?: string) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : []);
-function tourToForm(t: ApiTour): typeof EMPTY_FORM {
-  return {
-    name: t.name || '', description: t.description || '', about: t.about || '',
-    city: t.city || '', country: t.country || '',
-    duration: t.duration || '', price: t.prices?.adult || t.price || '',
-    priceChild: t.prices?.child || '', priceSenior: t.prices?.senior || '',
-    difficulty: t.difficulty || 'easy', maxGroup: t.max_group || 10,
-    image: t.image || '', latitude: t.latitude != null ? String(t.latitude) : '', longitude: t.longitude != null ? String(t.longitude) : '',
-    category: t.categories?.[0]?.id ? String(t.categories[0].id) : '',
-    isActive: t.is_active ?? true,
-    bestFor: splitCsv(t.best_for), bestSeason: splitCsv(t.best_season),
-    languages: t.languages || [],
-    activities: (t.activities || []).map((a) => a.id),
-    gallery: t.gallery || [],
-    highlights: toList(t.highlights), includes: toList(t.includes),
-    whatToBring: toList(t.what_to_bring), recommendations: toList(t.recommendations),
-    notSuitableFor: toList(t.not_suitable_for), conditions: toList(t.conditions),
-    itinerary: t.itinerary?.length ? t.itinerary : [{ time: '', activity: '', description: '' }],
-    penalties: t.penalties?.length ? t.penalties : DEFAULT_PENALTIES.map((p) => ({ ...p })),
-    availableDates: t.available_dates?.length ? t.available_dates : [{ date: '', spots: 10 }],
-    paymentOptions: t.payment_options?.length ? t.payment_options : [25, 50, 100],
-  };
-}
-
-const fieldClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500';
-const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
-
-const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string }> = ({ label, className, ...p }) => (
-  <div>
-    <label className={labelClass}>{label}</label>
-    <input {...p} className={`${fieldClass} ${className ?? ''}`} />
-  </div>
-);
-const Textarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }> = ({ label, className, ...p }) => (
-  <div>
-    <label className={labelClass}>{label}</label>
-    <textarea {...p} className={`${fieldClass} resize-none ${className ?? ''}`} />
-  </div>
-);
-
-// Editor de lista de textos con encabezado propio.
-function StringList({ label, items, onChange, placeholder }: { label: string; items: string[]; onChange: (v: string[]) => void; placeholder: string }) {
-  return (
-    <div>
-      <label className={labelClass}>{label}</label>
-      <div className="space-y-2">
-        {items.map((it, i) => (
-          <div key={i} className="flex gap-2">
-            <input value={it} onChange={(e) => onChange(items.map((x, idx) => (idx === i ? e.target.value : x)))} className={fieldClass} placeholder={`${placeholder} ${i + 1}`} />
-            <button type="button" onClick={() => onChange(items.filter((_, idx) => idx !== i))} className="rounded-lg px-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500">
-              <Icon name="close" className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
-        <button type="button" onClick={() => onChange([...items, ''])} className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700">
-          <Icon name="plus" className="h-4 w-4" /> Agregar
-        </button>
-      </div>
-    </div>
-  );
-}
+type ApiTour = ApiTourBase;
+const EMPTY_FORM = EMPTY_TOUR_FORM;
+const tourToForm = tourToFormBase;
 
 const CityToursApi = () => {
   const [form, setForm] = useState({ ...EMPTY_FORM });
@@ -424,7 +259,7 @@ const CityToursApi = () => {
                         <ApprovalBadge status={t.approval_status} note={t.approval_note} />
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-500">{fmtDateTime(t.created_at)}</td>
+                    <td className="px-4 py-3 text-slate-500">{fmtDate(t.created_at)}</td>
                     <td className="px-4 py-3 text-right">
                       {deleteId === t.id ? (
                         <span className="inline-flex items-center gap-2 whitespace-nowrap">
