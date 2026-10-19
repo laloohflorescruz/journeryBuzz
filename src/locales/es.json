@@ -19,6 +19,7 @@
     "users": "Usuarios",
     "roles": "Roles y permisos",
     "adminPanel": "Panel de administración",
+    "partnerPortal": "Portal de socios",
     "logout": "Cerrar Sesión"
   },
   "common": {
@@ -69,21 +70,48 @@
     "filterByTour": "Filtrar por Tour/Itinerario:"
   },
   "login": {
-    "welcomeBack": "Bienvenido",
-    "signInAccount": "Inicia sesión en tu cuenta de administrador",
+    "welcomeBack": "Bienvenido de nuevo",
+    "signInAccount": "Inicia sesión con tu cuenta de socio para gestionar tu oferta.",
     "username": "Usuario",
     "password": "Contraseña",
-    "enterUsername": "Ingresa tu usuario",
-    "enterPassword": "Ingresa tu contraseña",
-    "signIn": "Iniciar Sesión",
-    "onlySuperadmin": "Acceso restringido: solo los superadministradores pueden entrar a Backpacking Buzz.",
-    "accessRestricted": "Acceso restringido solo a personal autorizado.",
-    "contactAdmin": "Contacta a tu administrador del sistema si necesitas acceso.",
-    "tagline": "Gestiona tus\ntours y experiencias\nen un solo lugar.",
-    "taglineSub": "Control total sobre PDIs, destinos, proveedores, itinerarios y más — solo para administradores autorizados.",
-    "statsPOIs": "PDIs",
-    "statsProviders": "Proveedores",
-    "statsTours": "Tours"
+    "enterUsername": "Tu usuario de socio",
+    "enterPassword": "Tu contraseña",
+    "signIn": "Entrar al panel",
+    "tagline": "Lleva tu oferta turística\na miles de viajeros.",
+    "taglineSub": "Publica tus tours, recomienda lugares y gestiona tu empresa, tus reservas y tus pagos desde un solo panel.",
+    "partnerPortal": "Portal de socios",
+    "badge": "Para empresas y operadores turísticos",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
+    "capsLock": "Bloq Mayús está activado",
+    "onlyPartners": "Esta cuenta no es de socio. Backpacking Buzz es el panel de las empresas y operadores; si viajas con nosotros, entra desde el portal público.",
+    "networkError": "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo en unos minutos.",
+    "invalidCredentials": "Usuario o contraseña incorrectos.",
+    "serverError": "Error del servidor ({{status}}). Inténtalo de nuevo más tarde.",
+    "features": {
+      "tours": {
+        "title": "Publica tours",
+        "text": "Tours, itinerarios y experiencias con fechas, precios y cupos."
+      },
+      "pois": {
+        "title": "Recomienda POIs",
+        "text": "Sugiere lugares y destinos para enriquecer el catálogo."
+      },
+      "company": {
+        "title": "Tu empresa",
+        "text": "Ficha, servicios y equipo de tu negocio, siempre al día."
+      },
+      "bookings": {
+        "title": "Reservas y pagos",
+        "text": "Confirma reservas, sigue tus cobros y responde reseñas."
+      }
+    },
+    "moderationNote": "Cada publicación la revisa el equipo antes de salir en el portal.",
+    "secureNote": "Conexión cifrada · protegido con reCAPTCHA",
+    "notPartner": "¿Aún no eres socio?",
+    "notPartnerSub": "Registra tu empresa y empieza a publicar.",
+    "becomePartner": "Quiero ser socio",
+    "help": "¿Problemas para entrar? Escribe al equipo de la plataforma para recuperar tu acceso."
   },
   "dashboard": {
     "title": "Backpacking Buzz",
@@ -385,7 +413,9 @@
     "requiresAdmin": "Esta sección requiere privilegios de Administrador o superiores.",
     "requiresPermission": "No tienes permiso para acceder a esta sección.",
     "missingPermission": "Permiso requerido:",
-    "yourRole": "Tu rol:"
+    "yourRole": "Tu rol:",
+    "partnersOnly": "Backpacking Buzz es el panel de los socios. Tu cuenta no tiene acceso.",
+    "backHome": "Volver al inicio"
   },
   "footer": {
     "description": "Gestiona tu negocio de mochileros con facilidad. Conéctate con viajeros, maneja reservaciones y haz crecer tus servicios.",

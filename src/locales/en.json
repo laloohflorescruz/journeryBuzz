@@ -19,6 +19,7 @@
     "users": "Users",
     "roles": "Roles & permissions",
     "adminPanel": "Admin panel",
+    "partnerPortal": "Partner portal",
     "logout": "Logout"
   },
   "common": {
@@ -70,20 +71,47 @@
   },
   "login": {
     "welcomeBack": "Welcome back",
-    "signInAccount": "Sign in to your administrator account",
+    "signInAccount": "Sign in with your partner account to manage your offer.",
     "username": "Username",
     "password": "Password",
-    "enterUsername": "Enter your username",
-    "enterPassword": "Enter your password",
-    "signIn": "Sign In",
-    "onlySuperadmin": "Restricted access: only superadministrators can access Backpacking Buzz.",
-    "accessRestricted": "Access restricted to authorized personnel only.",
-    "contactAdmin": "Contact your system administrator if you need access.",
-    "tagline": "Manage your\ntours & experiences\nin one place.",
-    "taglineSub": "Full control over POIs, destinations, providers, itineraries and more — for authorized administrators only.",
-    "statsPOIs": "POIs",
-    "statsProviders": "Providers",
-    "statsTours": "Tours"
+    "enterUsername": "Your partner username",
+    "enterPassword": "Your password",
+    "signIn": "Go to dashboard",
+    "tagline": "Bring your tourism offer\nto thousands of travelers.",
+    "taglineSub": "Publish your tours, recommend places and manage your company, bookings and payments from a single panel.",
+    "partnerPortal": "Partner portal",
+    "badge": "For tourism businesses and operators",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "capsLock": "Caps Lock is on",
+    "onlyPartners": "This is not a partner account. Backpacking Buzz is the panel for businesses and operators; if you travel with us, sign in from the public portal.",
+    "networkError": "Could not reach the server. Check your connection and try again in a few minutes.",
+    "invalidCredentials": "Wrong username or password.",
+    "serverError": "Server error ({{status}}). Please try again later.",
+    "features": {
+      "tours": {
+        "title": "Publish tours",
+        "text": "Tours, itineraries and experiences with dates, prices and spots."
+      },
+      "pois": {
+        "title": "Recommend POIs",
+        "text": "Suggest places and destinations to enrich the catalog."
+      },
+      "company": {
+        "title": "Your company",
+        "text": "Your business profile, services and team, always up to date."
+      },
+      "bookings": {
+        "title": "Bookings & payments",
+        "text": "Confirm bookings, track payouts and reply to reviews."
+      }
+    },
+    "moderationNote": "Every listing is reviewed by our team before it goes live.",
+    "secureNote": "Encrypted connection · protected by reCAPTCHA",
+    "notPartner": "Not a partner yet?",
+    "notPartnerSub": "Register your company and start publishing.",
+    "becomePartner": "Become a partner",
+    "help": "Trouble signing in? Contact the platform team to recover your access."
   },
   "dashboard": {
     "title": "Backpacking Buzz",
@@ -385,7 +413,9 @@
     "requiresAdmin": "This section requires Administrator privileges or above.",
     "requiresPermission": "You don't have permission to access this section.",
     "missingPermission": "Required permission:",
-    "yourRole": "Your role:"
+    "yourRole": "Your role:",
+    "partnersOnly": "Backpacking Buzz is the partner panel. Your account has no access.",
+    "backHome": "Back to home"
   },
   "footer": {
     "description": "Manage your backpacking business with ease. Connect with travelers, handle reservations, and grow your services.",

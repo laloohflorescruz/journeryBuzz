@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { visibleNavItems } from '../lib/nav';
+import { roleOf } from '../lib/access';
 import Icon from './Icon';
 
 const itemClass = ({ isActive }: { isActive: boolean }) =>
@@ -38,7 +39,7 @@ const Sidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
         </span>
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold leading-tight text-white">Backpacking Buzz</div>
-          <div className="text-[11px] text-slate-400">{t('nav.adminPanel', 'Panel de administración')}</div>
+          <div className="text-[11px] text-slate-400">{roleOf(user) === 'superadmin' ? t('nav.adminPanel', 'Panel de administración') : t('nav.partnerPortal', 'Portal de socios')}</div>
         </div>
       </div>
 
