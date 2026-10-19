@@ -111,7 +111,17 @@
     "notPartner": "Not a partner yet?",
     "notPartnerSub": "Register your company and start publishing.",
     "becomePartner": "Become a partner",
-    "help": "Trouble signing in? Contact the platform team to recover your access."
+    "help": "Trouble signing in? Contact the platform team to recover your access.",
+    "stats": {
+      "destinations": "Destinations",
+      "pois": "Places",
+      "tours": "Tours",
+      "countries": "Countries",
+      "rating": "Average rating"
+    },
+    "topDestination": "Featured destination",
+    "placesCount_one": "{{count}} place",
+    "placesCount_other": "{{count}} places"
   },
   "dashboard": {
     "title": "Backpacking Buzz",

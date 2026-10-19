@@ -5,17 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import { apiErrorMessage } from '../lib/apiError';
 import { canAccessBuzz } from '../lib/access';
 import Icon from '../components/Icon';
+import LoginShowcase from '../components/LoginShowcase';
 
 // Portal público: allí está el alta de empresas («Quiero ser socio»).
 const PORTAL_URL = (import.meta.env.VITE_PORTAL_URL ?? 'https://www.journery.com').replace(/\/$/, '');
 
-// Lo que un socio hace en Buzz: es el argumento del panel de bienvenida.
-const FEATURES = [
-  { icon: 'ticket', key: 'tours' },
-  { icon: 'pin', key: 'pois' },
-  { icon: 'building', key: 'company' },
-  { icon: 'chart-bar', key: 'bookings' },
-] as const;
 
 const Login: React.FC = () => {
   const { login, logout } = useAuth();
@@ -62,60 +56,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-white">
-      {/* ── Panel de marca ── */}
-      <aside className="relative hidden w-[46%] flex-col justify-between overflow-hidden bg-slate-950 p-12 text-white lg:flex xl:p-16">
-        {/* Retícula y halos: profundidad sin imágenes */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-            maskImage: 'radial-gradient(ellipse at 30% 40%, #000 30%, transparent 75%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at 30% 40%, #000 30%, transparent 75%)',
-          }}
-        />
-        <div className="pointer-events-none absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-40 right-0 h-[28rem] w-[28rem] rounded-full bg-sky-500/10 blur-3xl" />
-
-        <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-900/40">
-            <Icon name="compass" className="h-6 w-6 text-white" />
-          </span>
-          <div className="leading-tight">
-            <p className="text-lg font-semibold tracking-tight">Backpacking Buzz</p>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-emerald-300/80">{t('login.partnerPortal')}</p>
-          </div>
-        </div>
-
-        <div className="relative max-w-lg">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-emerald-200 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> {t('login.badge')}
-          </span>
-          <h2 className="mt-6 whitespace-pre-line text-4xl font-semibold leading-[1.15] tracking-tight xl:text-5xl">
-            {t('login.tagline')}
-          </h2>
-          <p className="mt-5 text-base leading-relaxed text-slate-300">{t('login.taglineSub')}</p>
-
-          <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-            {FEATURES.map((f) => (
-              <li key={f.key} className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
-                  <Icon name={f.icon} className="h-5 w-5" />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold text-white">{t(`login.features.${f.key}.title`)}</span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-slate-400">{t(`login.features.${f.key}.text`)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="relative flex items-center gap-3 text-xs text-slate-400">
-          <Icon name="shield" className="h-4 w-4 text-emerald-400" />
-          <span>{t('login.moderationNote')}</span>
-        </div>
-      </aside>
+      <LoginShowcase />
 
       {/* ── Formulario ── */}
       <main className="flex flex-1 flex-col bg-slate-50/60">
