@@ -196,6 +196,10 @@ const Tours = () => {
         itinerary: form.itinerary.filter((s) => s.time || s.activity),
         highlights: form.highlights.filter(Boolean),
         includes: form.includes.filter(Boolean),
+        not_includes: form.notIncludes.filter(Boolean),
+        departure_time: form.departureTime || null,
+        return_time: form.returnTime || null,
+        meeting_point: form.meetingPoint,
         what_to_bring: form.whatToBring.filter(Boolean),
         recommendations: form.recommendations.filter(Boolean),
         not_suitable_for: form.notSuitableFor.filter(Boolean),
@@ -424,6 +428,11 @@ const Tours = () => {
                   <Input label="Latitud" type="number" step="any" value={form.latitude} onChange={(e) => set('latitude', e.target.value)} />
                   <Input label="Longitud" type="number" step="any" value={form.longitude} onChange={(e) => set('longitude', e.target.value)} />
                 </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Input label="Hora de salida" type="time" value={form.departureTime} onChange={(e) => set('departureTime', e.target.value)} />
+                <Input label="Hora de regreso" type="time" value={form.returnTime} onChange={(e) => set('returnTime', e.target.value)} />
+                <Input label="Punto de encuentro" value={form.meetingPoint} maxLength={255} onChange={(e) => set('meetingPoint', e.target.value)} placeholder="Ej. Parque Colón, frente a la Catedral" />
+              </div>
               </div>
               <div>
                 <label className={labelClass}>Ideal para <span className="font-normal text-slate-400">(varios)</span></label>
@@ -536,6 +545,7 @@ const Tours = () => {
           {formTab === 'incluye' && (
             <div className="space-y-6">
               <StringList label="Lo que incluye" items={form.includes} onChange={(v) => set('includes', v)} placeholder="Incluye" />
+              <StringList label="Lo que no incluye" items={form.notIncludes} onChange={(v) => set('notIncludes', v)} placeholder="Ej. Propinas, bebidas" />
               <StringList label="Qué llevar" items={form.whatToBring} onChange={(v) => set('whatToBring', v)} placeholder="Ítem" />
               <StringList label="Recomendaciones" items={form.recommendations} onChange={(v) => set('recommendations', v)} placeholder="Recomendación" />
               <StringList label="No apto para" items={form.notSuitableFor} onChange={(v) => set('notSuitableFor', v)} placeholder="Restricción" />

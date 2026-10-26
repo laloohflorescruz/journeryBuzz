@@ -17,7 +17,8 @@ export interface ApiTourBase {
   difficulty: string; max_group: number; best_for: string; best_season: string;
   languages: string[]; image: string; gallery: string[];
   latitude: number; longitude: number; is_active: boolean;
-  itinerary: ItineraryStep[]; highlights: string[]; includes: string[];
+  itinerary: ItineraryStep[]; highlights: string[]; includes: string[]; not_includes?: string[];
+  departure_time?: string | null; return_time?: string | null; meeting_point?: string;
   what_to_bring: string[]; recommendations: string[]; not_suitable_for: string[];
   conditions: string[]; penalties: Penalty[]; available_dates: AvailableDate[];
   payment_options: number[];
@@ -105,6 +106,9 @@ export const EMPTY_TOUR_FORM = {
   gallery: [] as string[],
   highlights: [''],
   includes: [...DEFAULT_INCLUDES],
+  notIncludes: [''],
+  // Horario: hora de salida y de regreso (HH:MM) y punto de encuentro.
+  departureTime: '', returnTime: '', meetingPoint: '',
   whatToBring: [...DEFAULT_WHAT_TO_BRING],
   recommendations: [...DEFAULT_RECOMMENDATIONS],
   notSuitableFor: [...DEFAULT_NOT_SUITABLE],
@@ -132,7 +136,9 @@ export function tourToFormBase(t: ApiTourBase): typeof EMPTY_TOUR_FORM {
     languages: t.languages || [],
     activities: (t.activities || []).map((a) => a.id),
     gallery: t.gallery || [],
-    highlights: toList(t.highlights), includes: toList(t.includes),
+    highlights: toList(t.highlights), includes: toList(t.includes), notIncludes: toList(t.not_includes),
+    departureTime: (t.departure_time || '').slice(0, 5), returnTime: (t.return_time || '').slice(0, 5),
+    meetingPoint: t.meeting_point || '',
     whatToBring: toList(t.what_to_bring), recommendations: toList(t.recommendations),
     notSuitableFor: toList(t.not_suitable_for), conditions: toList(t.conditions),
     itinerary: t.itinerary?.length ? t.itinerary : [{ time: '', activity: '', description: '' }],
