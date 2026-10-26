@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CityTours from './pages/CityTours';
 import Hospedajes from './pages/Hospedajes';
+import PublicProfile from './pages/PublicProfile';
 import RentACar from './pages/RentACar';
 import Tours from './pages/Tours';
 import Itineraries from './pages/Itineraries';
@@ -179,6 +180,7 @@ function App() {
 
           {/* Catálogo global e identidad (superadmin). El acceso lo aplica
               ProtectedRoute: buzz es superadmin-only. */}
+          <Route path="/public-profile" element={<ProtectedRoute><AppLayout><PublicProfile /></AppLayout></ProtectedRoute>} />
           <Route path="/pois" element={<ProtectedRoute><AppLayout><POIs /></AppLayout></ProtectedRoute>} />
           <Route path="/destinations" element={<ProtectedRoute><AppLayout><Destinations /></AppLayout></ProtectedRoute>} />
           {/* Catálogo global e identidad (geografía, categorías, actividades,

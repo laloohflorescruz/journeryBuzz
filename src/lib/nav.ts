@@ -29,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/reviews', labelKey: 'nav.reviews', icon: 'star', permission: 'review:view' },
   { to: '/reviews-by-tours', labelKey: 'nav.reviewsByTours', icon: 'chart-pie', permission: 'review:view' },
   { to: '/participants', labelKey: 'nav.participants', icon: 'users', permission: 'booking:view' },
+  { to: '/public-profile', labelKey: 'nav.publicProfile', icon: 'id' },
 
   // Catálogo global e identidad (superadmin). Buzz es superadmin-only, así que
   // no se restringen por permiso: el gate de acceso es el rol (ProtectedRoute).
