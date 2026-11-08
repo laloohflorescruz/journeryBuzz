@@ -10,7 +10,7 @@ const api = axios.create({
 // Endpoints de auth: nunca deben llevar el Bearer guardado (un token viejo haría
 // que el backend responda 401 antes de validar usuario/contraseña).
 const isAuthEndpoint = (url?: string) =>
-  !!url && (url.includes('/auth/login') || url.includes('/auth/refresh'));
+  !!url && (url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/password-reset'));
 
 // Attach access token to every request (excepto los endpoints de auth)
 api.interceptors.request.use((config) => {

@@ -8,6 +8,7 @@ import Sidebar from './components/Sidebar';
 import Icon from './components/Icon';
 import Footer from './components/Footer';
 import Login from './pages/Login';
+import { ForgotPassword, ResetPassword } from './pages/PasswordReset';
 import Dashboard from './pages/Dashboard';
 import CityTours from './pages/CityTours';
 import Hospedajes from './pages/Hospedajes';
@@ -84,6 +85,8 @@ function App() {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protegidas por permiso RBAC (ver src/lib/nav.ts, códigos de la API) */}
           <Route

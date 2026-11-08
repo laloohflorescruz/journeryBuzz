@@ -28,10 +28,28 @@ export interface AuthUser {
   roles?: RoleRef[];
 }
 
+/** Reto del segundo paso: la API envió un código al correo de la cuenta. */
+export interface OTPChallenge {
+  challenge: string;
+  email_hint: string;
+  expires_in: number;
+  resend_in: number;
+  digits: number;
+}
+
+/** Resultado del login: sesión abierta o código pendiente (socios). */
+export type LoginResult =
+  | { kind: 'session'; user: AuthUser }
+  | { kind: 'otp'; otp: OTPChallenge };
+
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<AuthUser>;
+  login: (username: string, password: string) => Promise<LoginResult>;
+  /** Segundo paso: valida el código del correo y abre la sesión. */
+  verifyOtp: (challenge: string, code: string) => Promise<AuthUser>;
+  /** Pide un código nuevo (anula el anterior). */
+  resendOtp: (challenge: string) => Promise<OTPChallenge>;
   logout: () => Promise<void>;
   isSuperAdmin: () => boolean;
   isAdminOrAbove: () => boolean;
@@ -83,14 +101,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const recaptcha_token = await getRecaptchaToken('login');
-    const { data } = await api.post('/auth/login/', { username, password, recaptcha_token });
+  const startSession = useCallback((data: { access: string; refresh: string; user: AuthUser }) => {
     localStorage.setItem('access_token', data.access);
     localStorage.setItem('refresh_token', data.refresh);
     localStorage.setItem('buzz_user', JSON.stringify(data.user));
     setUser(data.user);
-    return data.user as AuthUser;
+    return data.user;
+  }, []);
+
+  const login = useCallback(async (username: string, password: string): Promise<LoginResult> => {
+    const recaptcha_token = await getRecaptchaToken('login');
+    // otp_supported: este cliente sabe pedir el código del correo (las cuentas
+    // de socio no reciben tokens sin él).
+    const { data } = await api.post('/auth/login/', { username, password, recaptcha_token, otp_supported: true });
+    if (data.otp_required) return { kind: 'otp', otp: data as OTPChallenge };
+    return { kind: 'session', user: startSession(data) };
+  }, [startSession]);
+
+  const verifyOtp = useCallback(async (challenge: string, code: string) => {
+    const { data } = await api.post('/auth/login/verify-otp/', { challenge, code });
+    return startSession(data);
+  }, [startSession]);
+
+  const resendOtp = useCallback(async (challenge: string) => {
+    const { data } = await api.post('/auth/login/resend-otp/', { challenge });
+    return data as OTPChallenge;
   }, []);
 
   const logout = useCallback(async () => {
@@ -109,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const can = useCallback((code: string) => userCan(user, code), [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isSuperAdmin, isAdminOrAbove, can }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyOtp, resendOtp, logout, isSuperAdmin, isAdminOrAbove, can }}>
       {children}
     </AuthContext.Provider>
   );

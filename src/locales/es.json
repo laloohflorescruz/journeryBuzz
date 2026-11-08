@@ -122,7 +122,8 @@
     },
     "topDestination": "Destino destacado",
     "placesCount_one": "{{count}} lugar",
-    "placesCount_other": "{{count}} lugares"
+    "placesCount_other": "{{count}} lugares",
+    "forgotPassword": "¿Olvidaste tu contraseña?"
   },
   "dashboard": {
     "title": "Backpacking Buzz",
@@ -436,5 +437,49 @@
     "contact": "Contacto",
     "rights": "Todos los derechos reservados.",
     "madeWith": "Hecho con ❤️ para proveedores"
+  },
+  "passwordReset": {
+    "backToLogin": "Volver al inicio de sesión",
+    "forgotTitle": "Recupera tu acceso",
+    "forgotSubtitle": "Escribe el correo de tu cuenta de socio y te enviaremos un enlace para crear una contraseña nueva.",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "tu@empresa.com",
+    "sendLink": "Enviar enlace",
+    "sending": "Enviando…",
+    "sentTitle": "Revisa tu correo",
+    "sentText": "Si {{email}} pertenece a una cuenta, en unos minutos recibirás un enlace para restablecer la contraseña.",
+    "sentHint": "¿No llega? Revisa la carpeta de spam o vuelve a intentarlo con otro correo.",
+    "resetTitle": "Crea una contraseña nueva",
+    "resetSubtitle": "Usa al menos 8 caracteres. Al guardarla se cerrarán las sesiones abiertas.",
+    "newPassword": "Contraseña nueva",
+    "newPasswordPlaceholder": "Mínimo 8 caracteres",
+    "confirmPassword": "Repite la contraseña",
+    "confirmPlaceholder": "Escríbela otra vez",
+    "tooShort": "Debe tener al menos 8 caracteres.",
+    "mismatch": "Las contraseñas no coinciden.",
+    "save": "Guardar contraseña",
+    "saving": "Guardando…",
+    "doneTitle": "Contraseña actualizada",
+    "doneText": "Ya puedes entrar al portal de socios con tu contraseña nueva.",
+    "invalidTitle": "Enlace no válido",
+    "invalidText": "El enlace está incompleto o ha caducado. Pide uno nuevo para restablecer tu contraseña.",
+    "requestNew": "Pedir un enlace nuevo",
+    "genericError": "No se pudo completar la operación. Inténtalo de nuevo."
+  },
+  "otp": {
+    "title": "Verifica que eres tú",
+    "subtitle": "Te enviamos un código de 6 dígitos a {{email}}. Escríbelo para entrar.",
+    "codeLabel": "Código de verificación",
+    "digit": "Dígito {{n}}",
+    "verify": "Verificar y entrar",
+    "verifying": "Verificando…",
+    "back": "Usar otra cuenta",
+    "resend": "Reenviar código",
+    "resending": "Enviando…",
+    "resendIn": "Reenviar en {{s}} s",
+    "resent": "Te enviamos un código nuevo a {{email}}. El anterior ya no sirve.",
+    "restart": "Volver a iniciar sesión",
+    "hint": "¿No llega? Revisa la carpeta de spam. El código caduca en {{minutes}} min y nadie de nuestro equipo te lo pedirá nunca.",
+    "genericError": "No se pudo verificar el código. Inténtalo de nuevo."
   }
 }

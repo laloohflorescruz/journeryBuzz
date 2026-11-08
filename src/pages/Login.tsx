@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, type AuthUser, type OTPChallenge } from '../context/AuthContext';
+import OtpStep from '../components/OtpStep';
 import { apiErrorMessage } from '../lib/apiError';
 import { canAccessBuzz } from '../lib/access';
 import Icon from '../components/Icon';
@@ -12,7 +13,9 @@ const PORTAL_URL = (import.meta.env.VITE_PORTAL_URL ?? 'https://www.journery.com
 
 
 const Login: React.FC = () => {
-  const { login, logout } = useAuth();
+  const { login, logout, verifyOtp, resendOtp } = useAuth();
+  // Segundo paso (socios): la API envió un código al correo de la cuenta.
+  const [otp, setOtp] = useState<OTPChallenge | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
@@ -26,19 +29,34 @@ const Login: React.FC = () => {
   // Vuelve a la sección que el socio intentaba abrir antes de iniciar sesión.
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/';
 
+  // Buzz es para socios y equipo de la plataforma; un viajero no tiene panel aquí.
+  const enter = async (user: AuthUser) => {
+    if (!canAccessBuzz(user)) {
+      await logout();
+      setOtp(null);
+      setError(t('login.onlyPartners'));
+      return;
+    }
+    navigate(from === '/login' ? '/' : from, { replace: true });
+  };
+
+  const cancelOtp = () => {
+    setOtp(null);
+    setPassword('');
+    setError('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const user = await login(username.trim(), password);
-      // Buzz es para socios y equipo de la plataforma; un viajero no tiene panel aquí.
-      if (!canAccessBuzz(user)) {
-        await logout();
-        setError(t('login.onlyPartners'));
+      const result = await login(username.trim(), password);
+      if (result.kind === 'otp') {
+        setOtp(result.otp);
         return;
       }
-      navigate(from === '/login' ? '/' : from, { replace: true });
+      await enter(result.user);
     } catch (err) {
       // Sin respuesta = red/CORS/servidor caído; con respuesta = credenciales u otro.
       const status = (err as { response?: { status?: number } }).response?.status;
@@ -86,6 +104,14 @@ const Login: React.FC = () => {
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-7">
+              {otp ? (
+                <OtpStep
+                  otp={otp}
+                  onVerify={async (code) => { await enter(await verifyOtp(otp.challenge, code)); }}
+                  onResend={async () => { const fresh = await resendOtp(otp.challenge); setOtp(fresh); return fresh; }}
+                  onCancel={cancelOtp}
+                />
+              ) : (<>
               {error && (
                 <div role="alert" className="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5">
                   <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
@@ -115,7 +141,12 @@ const Login: React.FC = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700">{t('login.password')}</label>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label htmlFor="password" className="block text-sm font-medium text-slate-700">{t('login.password')}</label>
+                    <Link to="/forgot-password" className="text-xs font-semibold text-emerald-700 transition-colors hover:text-emerald-800 hover:underline">
+                      {t('login.forgotPassword')}
+                    </Link>
+                  </div>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
                       <Icon name="lock" className="h-4 w-4" />
@@ -167,6 +198,7 @@ const Login: React.FC = () => {
                   )}
                 </button>
               </form>
+              </>)}
 
               <p className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
                 <Icon name="shield" className="h-3.5 w-3.5" /> {t('login.secureNote')}

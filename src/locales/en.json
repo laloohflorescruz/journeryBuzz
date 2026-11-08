@@ -122,7 +122,8 @@
     },
     "topDestination": "Featured destination",
     "placesCount_one": "{{count}} place",
-    "placesCount_other": "{{count}} places"
+    "placesCount_other": "{{count}} places",
+    "forgotPassword": "Forgot your password?"
   },
   "dashboard": {
     "title": "Backpacking Buzz",
@@ -436,5 +437,49 @@
     "contact": "Contact",
     "rights": "All rights reserved.",
     "madeWith": "Made with ❤️ for providers"
+  },
+  "passwordReset": {
+    "backToLogin": "Back to sign in",
+    "forgotTitle": "Recover your access",
+    "forgotSubtitle": "Enter the email of your partner account and we will send you a link to create a new password.",
+    "email": "Email",
+    "emailPlaceholder": "you@company.com",
+    "sendLink": "Send link",
+    "sending": "Sending…",
+    "sentTitle": "Check your email",
+    "sentText": "If {{email}} belongs to an account, you will receive a link to reset your password in a few minutes.",
+    "sentHint": "Not arriving? Check your spam folder or try again with another email.",
+    "resetTitle": "Create a new password",
+    "resetSubtitle": "Use at least 8 characters. Saving it will sign out any open sessions.",
+    "newPassword": "New password",
+    "newPasswordPlaceholder": "At least 8 characters",
+    "confirmPassword": "Repeat the password",
+    "confirmPlaceholder": "Type it again",
+    "tooShort": "It must be at least 8 characters long.",
+    "mismatch": "Passwords do not match.",
+    "save": "Save password",
+    "saving": "Saving…",
+    "doneTitle": "Password updated",
+    "doneText": "You can now sign in to the partner portal with your new password.",
+    "invalidTitle": "Invalid link",
+    "invalidText": "The link is incomplete or has expired. Request a new one to reset your password.",
+    "requestNew": "Request a new link",
+    "genericError": "The operation could not be completed. Please try again."
+  },
+  "otp": {
+    "title": "Verify it's you",
+    "subtitle": "We sent a 6-digit code to {{email}}. Enter it to sign in.",
+    "codeLabel": "Verification code",
+    "digit": "Digit {{n}}",
+    "verify": "Verify and sign in",
+    "verifying": "Verifying…",
+    "back": "Use another account",
+    "resend": "Resend code",
+    "resending": "Sending…",
+    "resendIn": "Resend in {{s}}s",
+    "resent": "We sent a new code to {{email}}. The previous one no longer works.",
+    "restart": "Sign in again",
+    "hint": "Not arriving? Check your spam folder. The code expires in {{minutes}} min and our team will never ask you for it.",
+    "genericError": "The code could not be verified. Please try again."
   }
 }
