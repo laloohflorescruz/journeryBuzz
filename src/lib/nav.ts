@@ -28,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/payments', labelKey: 'nav.payments', icon: 'credit-card', permission: 'payment:view' },
   { to: '/reviews', labelKey: 'nav.reviews', icon: 'star', permission: 'review:view' },
   { to: '/reviews-by-tours', labelKey: 'nav.reviewsByTours', icon: 'chart-pie', permission: 'review:view' },
+  { to: '/coupons', labelKey: 'nav.coupons', icon: 'tag', permission: 'tour:view' },
   { to: '/participants', labelKey: 'nav.participants', icon: 'users', permission: 'booking:view' },
   { to: '/public-profile', labelKey: 'nav.publicProfile', icon: 'id' },
 

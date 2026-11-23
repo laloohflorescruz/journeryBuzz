@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard';
 import CityTours from './pages/CityTours';
 import Hospedajes from './pages/Hospedajes';
 import PublicProfile from './pages/PublicProfile';
+import Coupons from './pages/Coupons';
 import RentACar from './pages/RentACar';
 import Tours from './pages/Tours';
 import Itineraries from './pages/Itineraries';
@@ -169,6 +170,14 @@ function App() {
             element={
               <ProtectedRoute requirePermission="review:view">
                 <AppLayout><ReviewsByTours /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/coupons"
+            element={
+              <ProtectedRoute requirePermission="tour:view">
+                <AppLayout><Coupons /></AppLayout>
               </ProtectedRoute>
             }
           />
