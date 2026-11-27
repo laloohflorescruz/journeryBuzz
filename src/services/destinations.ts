@@ -4,9 +4,9 @@ import api from './api';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 
-// Destinos (/destinations/). Escritura solo superadmin (IsSuperAdminOrReadOnly).
-// Versión enfocada a los campos núcleo del catálogo; los campos codificados
-// (idioma/moneda/mejor época) se gestionan aparte y no se tocan aquí.
+// Destinos (/destinations/) propuestos por el socio. El editor de
+// Destinations.tsx cubre la ficha completa (la del panel admin salvo valoración
+// y atracciones destacadas, que fija la plataforma al revisar).
 
 export type Region = 'spain' | 'europe' | 'caribbean' | 'south-america' | 'americas' | 'asia' | 'africa' | 'oceania';
 
@@ -47,7 +47,16 @@ export interface Destination {
   submitted_by_username?: string | null;
   country: Place | null;
   city: (Place & { country_name?: string }) | null;
+  weather?: Partial<Record<Season, Partial<WeatherSeason>>>;
+  practical_info?: Partial<PracticalInfo>;
+  itineraries?: ItineraryDay[];
 }
+
+export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
+export interface WeatherSeason { temp: string; description: string; ideal_for: string[] }
+export interface PracticalInfo { transportation: Record<string, string>; accommodation: Record<string, string>; food: Record<string, string> }
+export interface ScheduleItem { time: string; activity: string; description: string; lat: string; lng: string; [k: string]: unknown }
+export interface ItineraryDay { day: number; title: string; description: string; schedule: ScheduleItem[] }
 
 /** Bloques estructurados de la ficha del destino (mismas formas que la API). */
 export interface CostOfLiving {
@@ -94,6 +103,9 @@ export interface DestinationPayload {
   is_draft?: boolean;
   country_id?: number | null;
   city_id?: number | null;
+  weather?: Record<Season, WeatherSeason>;
+  practical_info?: PracticalInfo;
+  itineraries?: ItineraryDay[];
 }
 
 export async function listDestinations(): Promise<Destination[]> {
@@ -107,5 +119,13 @@ export async function listDestinations(): Promise<Destination[]> {
 }
 export async function createDestination(payload: DestinationPayload): Promise<Destination> {
   const { data } = await api.post<Destination>('/destinations/', payload);
+  return data;
+}
+export async function getDestination(id: number): Promise<Destination> {
+  const { data } = await api.get<Destination>(`/destinations/${id}/`);
+  return data;
+}
+export async function updateDestination(id: number, payload: DestinationPayload): Promise<Destination> {
+  const { data } = await api.patch<Destination>(`/destinations/${id}/`, payload);
   return data;
 }

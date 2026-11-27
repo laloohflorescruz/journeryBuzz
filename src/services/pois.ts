@@ -5,8 +5,9 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 
 // POIs (/pois/): catálogo de puntos de interés. La escritura exige permiso RBAC
-// poi:* (superadmin lo tiene) + propiedad. Versión enfocada a campos núcleo;
-// los editores profundos (admisión multimoneda, horarios) quedan para después.
+// poi:* + propiedad. El editor de POIs.tsx cubre la ficha completa (la misma
+// que el panel admin, salvo lo que decide la plataforma: valoración, secciones,
+// borrador y ofertas).
 
 interface Place { id: number; name: string }
 interface CategoryRef { id: number; name_en: string; name_es: string; icon: string }
@@ -38,6 +39,9 @@ export interface POI {
   rating: number;
   country: Place | null;
   city: Place | null;
+  cities?: Place[];
+  /** Resto de la ficha (horario, contacto, producto, condiciones…): ver POIs.tsx. */
+  [field: string]: unknown;
 }
 
 export interface POIPayload {
@@ -68,6 +72,9 @@ export interface POIPayload {
   is_active?: boolean;
   country_id?: number | null;
   city_id?: number | null;
+  city_ids?: number[];
+  /** Resto de campos de la ficha completa (mismos nombres que la API). */
+  [field: string]: unknown;
 }
 
 /**

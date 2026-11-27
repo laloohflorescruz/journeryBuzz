@@ -116,7 +116,8 @@ export const EMPTY_TOUR_FORM = {
   itinerary: [{ time: '', activity: '', description: '' }] as ItineraryStep[],
   penalties: DEFAULT_PENALTIES.map((p) => ({ ...p })),
   availableDates: [{ date: '', spots: 10 }] as AvailableDate[],
-  paymentOptions: [25, 50, 100] as number[],
+  // Vacío = los porcentajes de la empresa (Pagos → Pago por adelantado).
+  paymentOptions: [] as number[],
 };
 
 // Mapea un tour de la API al estado del formulario (para editar).
@@ -144,6 +145,6 @@ export function tourToFormBase(t: ApiTourBase): typeof EMPTY_TOUR_FORM {
     itinerary: t.itinerary?.length ? t.itinerary : [{ time: '', activity: '', description: '' }],
     penalties: t.penalties?.length ? t.penalties : DEFAULT_PENALTIES.map((p) => ({ ...p })),
     availableDates: t.available_dates?.length ? t.available_dates : [{ date: '', spots: 10 }],
-    paymentOptions: t.payment_options?.length ? t.payment_options : [25, 50, 100],
+    paymentOptions: t.payment_options ?? [],
   };
 }

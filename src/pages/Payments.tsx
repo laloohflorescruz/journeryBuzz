@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 import Modal, { modalBtnGhost, modalBtnDanger } from '../components/Modal';
 import DateFilterPanel from '../components/DateFilterPanel';
+import CompanyPaymentOptions from '../components/CompanyPaymentOptions';
 import {
   dayOf, matchesDateFilter, EMPTY_DATE_FILTER, type DateFilterValue,
 } from '../lib/dateFilter';
@@ -136,6 +137,8 @@ function Payments() {
           )}
         </p>
       </div>
+
+      <CompanyPaymentOptions />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_1fr]">
         <DateFilterPanel

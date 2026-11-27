@@ -11,9 +11,13 @@ import {
   COST_SELECT_OPTIONS, COST_LABELS, QOL_SELECT_OPTIONS, QOL_LABELS,
 } from '../lib/fieldOptions';
 import {
-  listDestinations, createDestination,
+  listDestinations, createDestination, getDestination, updateDestination,
   type Destination, type DestinationPayload, type Region,
+  type Season, type WeatherSeason, type PracticalInfo, type ItineraryDay, type ScheduleItem,
 } from '../services/destinations';
+import LocationMapModal from '../components/LocationMapModal';
+import { Block, KVEditor, RowsEditor, TextList as KitTextList } from '../components/EditorKit';
+import { cleanList } from '../lib/editorData';
 import { apiErrorMessage } from '../lib/apiError';
 import { ChipPicker } from '../components/FormFields';
 import { fieldClass, labelClass, toSlug, toggleId } from '../lib/forms';
@@ -26,12 +30,31 @@ import { fieldClass, labelClass, toSlug, toggleId } from '../lib/forms';
 interface Place { id: number; name: string }
 interface NamedCatalog { id: number; name_en: string; name_es: string; is_active?: boolean }
 
-type FormTab = 'resumen' | 'ficha' | 'calidad';
+type FormTab = 'resumen' | 'ficha' | 'calidad' | 'clima' | 'practica' | 'itinerarios';
 const FORM_TABS: { key: FormTab; label: string }[] = [
   { key: 'resumen', label: 'Resumen' },
   { key: 'ficha', label: 'Ficha técnica' },
+  { key: 'clima', label: 'Clima' },
+  { key: 'practica', label: 'Info práctica' },
+  { key: 'itinerarios', label: 'Itinerarios' },
   { key: 'calidad', label: 'Coste y calidad de vida' },
 ];
+
+const SEASONS: { key: Season; label: string }[] = [
+  { key: 'spring', label: 'Primavera' }, { key: 'summer', label: 'Verano' },
+  { key: 'autumn', label: 'Otoño' }, { key: 'winter', label: 'Invierno' },
+];
+const PRACTICAL: { key: keyof PracticalInfo; label: string; hint: string }[] = [
+  { key: 'transportation', label: 'Transporte', hint: 'Ej. Metro → Dos líneas, de 6:00 a 22:30' },
+  { key: 'accommodation', label: 'Alojamiento', hint: 'Ej. Económico → Hostales desde 20 USD/noche' },
+  { key: 'food', label: 'Gastronomía', hint: 'Ej. Local → Comida del día desde 5 USD' },
+];
+const emptyWeather = (): Record<Season, WeatherSeason> => ({
+  spring: { temp: '', description: '', ideal_for: [] }, summer: { temp: '', description: '', ideal_for: [] },
+  autumn: { temp: '', description: '', ideal_for: [] }, winter: { temp: '', description: '', ideal_for: [] },
+});
+const emptyStop = (): ScheduleItem => ({ time: '', activity: '', description: '', lat: '', lng: '' });
+const maskToMonths = (mask?: number) => MONTHS.filter((_, i) => (Number(mask) || 0) & (1 << i));
 
 // Lista de textos editable (pros, contras, entorno).
 function TextList({ label, items, onChange, placeholder }: {
@@ -89,8 +112,47 @@ const EMPTY_FORM = () => ({
   negatives: [] as string[],
   travel_style_ids: [] as number[],
   category_ids: [] as number[],
+  weather: emptyWeather(),
+  practical_info: { transportation: {}, accommodation: {}, food: {} } as PracticalInfo,
+  itineraries: [] as ItineraryDay[],
 });
 type FormState = ReturnType<typeof EMPTY_FORM>;
+
+function toForm(d: Destination): FormState {
+  const base = EMPTY_FORM();
+  const w = d.weather ?? {};
+  const pros = d.pros_cons ?? { positives: [], negatives: [] };
+  return {
+    ...base,
+    name: d.name, slug: d.slug ?? '', slugTouched: true, region: d.region || '',
+    country: d.country?.name ?? '', city_id: d.city?.id ?? '',
+    description: d.description ?? '', long_description: d.long_description ?? '', population: d.population ?? '',
+    image: d.image ?? '', gallery: d.photos ?? [],
+    latitude: d.latitude ? String(d.latitude) : '', longitude: d.longitude ? String(d.longitude) : '',
+    is_active: d.is_active, is_draft: d.is_draft,
+    featured_info: d.featured_info ?? '',
+    visitors_per_year: d.visitors_per_year == null ? '' : String(d.visitors_per_year),
+    language: d.language ?? '', currency: d.currency ?? '',
+    timezone: d.timezone == null ? '' : String(d.timezone), iata_code: d.iata_code ?? '',
+    best_months: maskToMonths(d.best_time),
+    climate_advice: d.climate_advice ?? '',
+    environment_nature: d.environment_nature ?? [],
+    cost_of_living: { ...(d.cost_of_living as Record<string, string> | undefined) },
+    quality_of_life: { ...(d.quality_of_life as Record<string, string> | undefined) },
+    positives: pros.positives ?? [], negatives: pros.negatives ?? [],
+    travel_style_ids: (d.travel_styles ?? []).map((x) => x.id),
+    category_ids: (d.categories ?? []).map((x) => x.id),
+    weather: Object.fromEntries(SEASONS.map(({ key }) => [key, {
+      temp: w[key]?.temp ?? '', description: w[key]?.description ?? '', ideal_for: w[key]?.ideal_for ?? [],
+    }])) as Record<Season, WeatherSeason>,
+    practical_info: {
+      transportation: { ...(d.practical_info?.transportation ?? {}) },
+      accommodation: { ...(d.practical_info?.accommodation ?? {}) },
+      food: { ...(d.practical_info?.food ?? {}) },
+    },
+    itineraries: (d.itineraries ?? []).map((day) => ({ ...day, schedule: (day.schedule ?? []).map((x) => ({ ...emptyStop(), ...x })) })),
+  };
+}
 
 function Destinations() {
   const { t } = useTranslation();
@@ -113,6 +175,8 @@ function Destinations() {
   const [stylesDb, setStylesDb] = useState<NamedCatalog[]>([]);
   const [categoriesDb, setCategoriesDb] = useState<NamedCatalog[]>([]);
   const [formTab, setFormTab] = useState<FormTab>('resumen');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -138,7 +202,27 @@ function Destinations() {
     if (country) api.get(`/cities/?country_id=${country.id}`).then(({ data }) => setCitiesDb(data)).catch(() => setCitiesDb([]));
   };
 
-  const startCreate = () => { setError(''); setSuccess(''); setForm(EMPTY_FORM()); setCitiesDb([]); setView('form'); };
+  const startCreate = () => { setError(''); setSuccess(''); setForm(EMPTY_FORM()); setCitiesDb([]); setEditingId(null); setFormTab('resumen'); setView('form'); };
+
+  // Una propuesta rechazada se corrige y se reenvía; mientras está pendiente no
+  // cambia (el equipo la está revisando) y lo aprobado lo gestiona el equipo.
+  const canEdit = (d: Destination) => d.approval_status === 'rejected';
+  const startEdit = async (id: number) => {
+    setError(''); setSuccess('');
+    try {
+      const d = await getDestination(id);
+      setForm(toForm(d));
+      const country = countriesDb.find((c) => c.name === d.country?.name);
+      if (country) api.get(`/cities/?country_id=${country.id}`).then(({ data }) => setCitiesDb(data)).catch(() => setCitiesDb([]));
+      setEditingId(id); setFormTab('resumen'); setView('form');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) { setError(apiErrorMessage(err, 'No se pudo cargar el destino.')); }
+  };
+
+  const setSeason = (season: Season, patch: Partial<WeatherSeason>) =>
+    setForm((f) => ({ ...f, weather: { ...f.weather, [season]: { ...f.weather[season], ...patch } } }));
+  const setDay = (i: number, patch: Partial<ItineraryDay>) =>
+    setForm((f) => ({ ...f, itineraries: f.itineraries.map((d, j) => (j === i ? { ...d, ...patch } : d)) }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,13 +261,26 @@ function Destinations() {
       },
       travel_style_ids: form.travel_style_ids,
       category_ids: form.category_ids,
+      weather: Object.fromEntries(SEASONS.map(({ key }) => [key, {
+        ...form.weather[key], ideal_for: cleanList(form.weather[key].ideal_for),
+      }])) as Record<Season, WeatherSeason>,
+      practical_info: Object.fromEntries((Object.keys(form.practical_info) as (keyof PracticalInfo)[]).map((k) => [
+        k, Object.fromEntries(Object.entries(form.practical_info[k]).filter(([key, v]) => key.trim() && v.trim())),
+      ])) as unknown as PracticalInfo,
+      itineraries: form.itineraries.filter((d) => d.title.trim() || d.schedule.some((x) => x.activity.trim()))
+        .map((d, i) => ({ ...d, day: i + 1, schedule: d.schedule.filter((x) => x.activity.trim()) })),
     };
     const country = countriesDb.find((c) => c.name === form.country);
     payload.country_id = country ? country.id : null;
     try {
-      await createDestination(payload);
-      setSuccess('Destino enviado. Queda pendiente de aprobación.');
-      setView('list'); load();
+      if (editingId) {
+        await updateDestination(editingId, payload);
+        setSuccess('Propuesta actualizada. Vuelve a quedar pendiente de aprobación.');
+      } else {
+        await createDestination(payload);
+        setSuccess('Destino enviado. Queda pendiente de aprobación.');
+      }
+      setView('list'); setEditingId(null); load();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(apiErrorMessage(err, 'No se pudo guardar el destino. Revisa el nombre/slug (únicos).'));
@@ -209,11 +306,12 @@ function Destinations() {
           <button type="button" onClick={() => { setView('list'); setError(''); }}
             className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900 hover:bg-slate-50">← Volver</button>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-900">
-            <Icon name="pin" className="h-6 w-6 text-emerald-600" /> Proponer destino
+            <Icon name="pin" className="h-6 w-6 text-emerald-600" /> {editingId ? 'Corregir propuesta' : 'Proponer destino'}
           </h1>
+          {editingId && <span className="text-sm text-slate-400">ID #{editingId}</span>}
         </div>
 
-        <ApprovalNotice noun="el destino" />
+        {!editingId && <ApprovalNotice noun="el destino" />}
         {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -290,6 +388,9 @@ function Destinations() {
                 <input type="number" step="any" value={form.longitude} placeholder="-69.9312" onChange={(e) => set('longitude', e.target.value)} className={fieldClass} />
               </div>
             </div>
+            <button type="button" onClick={() => setMapOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-900">
+              <Icon name="map" className="h-4 w-4" /> Marcar en el mapa
+            </button>
 
             <div className="border-t border-slate-100 pt-5">
               <ImageUploader label="Imagen principal" value={form.image} folder="destinations" onChange={(url) => set('image', url)} />
@@ -408,6 +509,61 @@ function Destinations() {
             </div>
           </div>
 
+          {/* ── Clima ── */}
+          <div className={`space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${formTab === 'clima' ? '' : 'hidden'}`}>
+            <p className="text-sm text-slate-500">Cómo es cada estación y para qué es buena. Deja vacías las que no apliquen (en el trópico, p. ej., basta con verano e invierno).</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {SEASONS.map(({ key, label }) => (
+                <Block key={key} title={label}>
+                  <div>
+                    <label className={labelClass}>Temperatura</label>
+                    <input value={form.weather[key].temp} placeholder="Ej. 24–31 °C" onChange={(e) => setSeason(key, { temp: e.target.value })} className={fieldClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Cómo es</label>
+                    <textarea value={form.weather[key].description} rows={2} onChange={(e) => setSeason(key, { description: e.target.value })} className={fieldClass} />
+                  </div>
+                  <KitTextList label="Ideal para" items={form.weather[key].ideal_for} onChange={(v) => setSeason(key, { ideal_for: v })} placeholder="Ej. Playa" />
+                </Block>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Info práctica ── */}
+          <div className={`space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${formTab === 'practica' ? '' : 'hidden'}`}>
+            {PRACTICAL.map(({ key, label, hint }) => (
+              <KVEditor key={key} label={label} hint={hint} data={form.practical_info[key]}
+                onChange={(d) => set('practical_info', { ...form.practical_info, [key]: d })} />
+            ))}
+          </div>
+
+          {/* ── Itinerarios ── */}
+          <div className={`space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${formTab === 'itinerarios' ? '' : 'hidden'}`}>
+            <p className="text-sm text-slate-500">Un itinerario sugerido, día a día. El portal lo enseña en la ficha del destino.</p>
+            {form.itineraries.map((day, i) => (
+              <Block key={i} title={`Día ${i + 1}`}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={labelClass}>Título</label>
+                    <input value={day.title} placeholder="Ej. Zona Colonial" onChange={(e) => setDay(i, { title: e.target.value })} className={fieldClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Resumen</label>
+                    <input value={day.description} onChange={(e) => setDay(i, { description: e.target.value })} className={fieldClass} />
+                  </div>
+                </div>
+                <RowsEditor<ScheduleItem> label="Actividades del día" rows={day.schedule} onChange={(v) => setDay(i, { schedule: v })}
+                  empty={emptyStop} addLabel="Añadir actividad"
+                  columns={[{ key: 'time', label: 'Hora' }, { key: 'activity', label: 'Actividad', wide: true }, { key: 'description', label: 'Detalle', wide: true }, { key: 'lat', label: 'Latitud' }, { key: 'lng', label: 'Longitud' }]} />
+                <button type="button" onClick={() => set('itineraries', form.itineraries.filter((_, j) => j !== i))} className="text-sm font-medium text-red-500 hover:text-red-600">Quitar este día</button>
+              </Block>
+            ))}
+            <button type="button" onClick={() => set('itineraries', [...form.itineraries, { day: form.itineraries.length + 1, title: '', description: '', schedule: [emptyStop()] }])}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-900">
+              <Icon name="plus" className="h-4 w-4" /> Añadir día
+            </button>
+          </div>
+
           {/* ── Coste y calidad de vida ── */}
           <div className={`space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ${formTab === 'calidad' ? '' : 'hidden'}`}>
             <div>
@@ -455,10 +611,16 @@ function Destinations() {
             <button type="submit" disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50">
               <Icon name="check" className="h-4 w-4" />
-              {saving ? t('common.saving', 'Guardando…') : 'Enviar propuesta'}
+              {saving ? t('common.saving', 'Guardando…') : editingId ? 'Guardar cambios' : 'Enviar propuesta'}
             </button>
           </div>
         </form>
+
+        {mapOpen && (
+          <LocationMapModal open name={form.name} lat={Number(form.latitude) || 0} lng={Number(form.longitude) || 0}
+            onClose={() => setMapOpen(false)}
+            onChange={(lat, lng) => { set('latitude', lat.toFixed(6)); set('longitude', lng.toFixed(6)); }} />
+        )}
       </div>
     );
   }
@@ -542,9 +704,13 @@ function Destinations() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="whitespace-nowrap text-xs text-slate-400">
-                        Lo gestiona el administrador
-                      </span>
+                      {canEdit(d) ? (
+                        <button type="button" onClick={() => startEdit(d.id)} title="Corregir propuesta" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600">
+                          <Icon name="pencil" className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <span className="whitespace-nowrap text-xs text-slate-400">{d.approval_status === 'pending' ? 'En revisión' : 'Lo gestiona el administrador'}</span>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -544,7 +544,7 @@ const CityToursApi = () => {
 
               <div>
                 <label className={labelClass}>Porcentajes de pago permitidos</label>
-                <p className="mb-2 text-xs text-slate-500">El cliente podrá abonar hoy uno de estos porcentajes (ej. 25, 50, 100).</p>
+                <p className="mb-2 text-xs text-slate-500">Solo si este tour cobra distinto: el cliente podrá abonar hoy uno de estos porcentajes. Sin ninguno, se usan los de tu empresa (Pagos → Pago por adelantado).</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {form.paymentOptions.map((p, i) => (
                     <div key={i} className="flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1">

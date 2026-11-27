@@ -7,6 +7,7 @@ import { Input } from '../components/FormFields';
 import { apiErrorMessage } from '../lib/apiError';
 import { fieldClass, labelClass } from '../lib/forms';
 import { useAuth } from '../context/AuthContext';
+import LocationMapModal from '../components/LocationMapModal';
 
 // Perfil público del socio en el portal (/provider/<slug>): presentación,
 // logo, portada, web y redes. Influencers, guías y agencias lo usan como su
@@ -42,11 +43,14 @@ interface Company {
   cover_image: string;
   website: string;
   social_links: Record<string, string> | null;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
   is_verified: boolean;
   is_active: boolean;
 }
 
-type Draft = Pick<Company, 'provider_type' | 'description' | 'logo' | 'cover_image' | 'website'> & { social_links: Record<string, string> };
+type Draft = Pick<Company, 'provider_type' | 'description' | 'logo' | 'cover_image' | 'website' | 'address' | 'latitude' | 'longitude'> & { social_links: Record<string, string> };
 
 const toDraft = (c: Company): Draft => ({
   provider_type: c.provider_type || '',
@@ -55,6 +59,9 @@ const toDraft = (c: Company): Draft => ({
   cover_image: c.cover_image || '',
   website: c.website || '',
   social_links: { ...(c.social_links || {}) },
+  address: c.address || '',
+  latitude: c.latitude ?? null,
+  longitude: c.longitude ?? null,
 });
 
 const PublicProfile: React.FC = () => {
@@ -66,6 +73,7 @@ const PublicProfile: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
 
   useEffect(() => {
     api.get('/companies/')
@@ -168,6 +176,29 @@ const PublicProfile: React.FC = () => {
         <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6">
           <ImageUploader label={draft.provider_type === 'influencer' ? 'Foto de perfil' : 'Logo'} value={draft.logo} folder="companies" onChange={(url) => set('logo', url)} />
           <ImageUploader label="Portada (horizontal)" value={draft.cover_image} folder="companies" onChange={(url) => set('cover_image', url)} />
+
+          <div className="border-t border-slate-100 pt-5">
+            <p className={labelClass}>Ubicación del local</p>
+            <p className="mb-3 text-xs text-slate-500">Si los viajeros te visitan (restaurante, oficina, tienda), marca el punto: el portal te sitúa en el mapa junto a los lugares cercanos.</p>
+            <Input label="Dirección" value={draft.address} maxLength={255} onChange={(e) => set('address', e.target.value)} placeholder="Calle, número, sector" />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {draft.latitude != null && draft.longitude != null ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 font-mono text-xs text-emerald-800">
+                  <Icon name="pin" className="h-3.5 w-3.5" /> {draft.latitude.toFixed(5)}, {draft.longitude.toFixed(5)}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400">Sin punto en el mapa</span>
+              )}
+              <button type="button" onClick={() => setMapOpen(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-900">
+                {draft.latitude != null ? 'Cambiar' : 'Marcar en el mapa'}
+              </button>
+              {draft.latitude != null && (
+                <button type="button" onClick={() => { set('latitude', null); set('longitude', null); }} className="text-xs font-medium text-slate-500 hover:text-red-600">
+                  Quitar
+                </button>
+              )}
+            </div>
+          </div>
         </aside>
 
         <div className="flex items-center justify-end gap-3 lg:col-span-2">
@@ -178,6 +209,20 @@ const PublicProfile: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {mapOpen && (
+        <LocationMapModal
+          open
+          name={company.name}
+          lat={draft.latitude ?? 0}
+          lng={draft.longitude ?? 0}
+          onClose={() => setMapOpen(false)}
+          onChange={(lat, lng) => {
+            set('latitude', Number(lat.toFixed(6)));
+            set('longitude', Number(lng.toFixed(6)));
+          }}
+        />
+      )}
     </div>
   );
 };

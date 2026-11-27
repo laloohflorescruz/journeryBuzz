@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { analyticsEnabled } from '../services/analytics';
+import { openCookieSettings } from '../services/consent';
 
 // Pie del panel: discreto y del mismo lenguaje visual que el resto (slate).
 // Antes era un pie de sitio público (4 columnas, redes sociales, estrellas) que
@@ -15,7 +17,12 @@ function Footer() {
         <p>
           © {new Date().getFullYear()} Backpacking Buzz. {t('footer.rights')}
         </p>
-        <p>Panel de administración</p>
+        <p className="flex items-center gap-4">
+          {analyticsEnabled() && (
+            <button type="button" onClick={openCookieSettings} className="hover:text-slate-600">Preferencias de cookies</button>
+          )}
+          <span>Panel de administración</span>
+        </p>
       </div>
     </footer>
   );

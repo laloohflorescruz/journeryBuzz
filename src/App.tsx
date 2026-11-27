@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AnalyticsTracker from './components/AnalyticsTracker';
+import CookieBanner from './components/CookieBanner';
 import Sidebar from './components/Sidebar';
 import Icon from './components/Icon';
 import Footer from './components/Footer';
@@ -14,6 +15,8 @@ import CityTours from './pages/CityTours';
 import Hospedajes from './pages/Hospedajes';
 import PublicProfile from './pages/PublicProfile';
 import Coupons from './pages/Coupons';
+import ServiceRequests from './pages/ServiceRequests';
+import ServiceCatalog from './pages/ServiceCatalog';
 import RentACar from './pages/RentACar';
 import Tours from './pages/Tours';
 import Itineraries from './pages/Itineraries';
@@ -83,6 +86,7 @@ function App() {
     <AuthProvider>
       <Router>
         <AnalyticsTracker />
+        <CookieBanner />
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
@@ -173,6 +177,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/requests"
+            element={
+              <ProtectedRoute requirePermission="booking:view">
+                <AppLayout><ServiceRequests /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/services" element={<ProtectedRoute><AppLayout><ServiceCatalog /></AppLayout></ProtectedRoute>} />
           <Route
             path="/coupons"
             element={
